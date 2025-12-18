@@ -50,19 +50,20 @@ release:
   prerelease: auto
   name_template: "v{{.Version}}"
 
-brews:
-  - name: snapem
-    repository:
-      owner: Positronico
-      name: homebrew-tap
-    directory: Formula
-    homepage: "https://github.com/Positronico/snapem"
-    description: "Zero-Trust npm/bun CLI for macOS Silicon"
-    license: "MIT"
-    dependencies:
-      - name: container
-        type: cask
-    install: |
-      bin.install "snapem"
-    test: |
-      system "#{bin}/snapem", "version"
+# Homebrew tap (uncomment when Positronico/homebrew-tap exists)
+# brews:
+#   - name: snapem
+#     repository:
+#       owner: Positronico
+#       name: homebrew-tap
+#     directory: Formula
+#     homepage: "https://github.com/Positronico/snapem"
+#     description: "Zero-Trust npm/bun CLI for macOS Silicon"
+#     license: "MIT"
+#     dependencies:
+#       - name: container
+#         type: cask
+#     install: |
+#       bin.install "snapem"
+#     test: |
+#       system "#{bin}/snapem", "version"
