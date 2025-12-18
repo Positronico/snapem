@@ -58,7 +58,7 @@
 ## Medium Priority
 
 ### Distribution
-- [ ] **GoReleaser setup**
+- [x] **GoReleaser setup**
   - Create `.goreleaser.yaml`
   - Configure for darwin/arm64 (macOS Silicon)
   - Set up GitHub Actions for releases

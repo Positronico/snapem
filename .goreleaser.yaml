@@ -1,0 +1,68 @@
+version: 2
+
+project_name: snapem
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: snapem
+    main: ./cmd/snapem
+    binary: snapem
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+    goarch:
+      - arm64
+      - amd64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: default
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "typo"
+
+release:
+  github:
+    owner: Positronico
+    name: snapem
+  draft: false
+  prerelease: auto
+  name_template: "v{{.Version}}"
+
+brews:
+  - name: snapem
+    repository:
+      owner: Positronico
+      name: homebrew-tap
+    directory: Formula
+    homepage: "https://github.com/Positronico/snapem"
+    description: "Zero-Trust npm/bun CLI for macOS Silicon"
+    license: "MIT"
+    dependencies:
+      - name: container
+        type: cask
+    install: |
+      bin.install "snapem"
+    test: |
+      system "#{bin}/snapem", "version"
