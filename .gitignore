@@ -32,3 +32,4 @@ snapem.yaml
 
 # Cache
 .cache/
+dist/
