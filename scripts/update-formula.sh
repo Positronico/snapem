@@ -58,12 +58,41 @@ fi
 # Ensure Formula directory exists
 mkdir -p "$TAP_DIR/Formula"
 
-# Copy current formula as base (if exists) or create new
 FORMULA_PATH="$TAP_DIR/Formula/$FORMULA_NAME"
 
+# Create formula if it doesn't exist
 if [ ! -f "$FORMULA_PATH" ]; then
   echo "  Creating new formula..."
-  cp "Formula/$FORMULA_NAME" "$FORMULA_PATH"
+  cat > "$FORMULA_PATH" << 'FORMULA'
+class Snapem < Formula
+  desc "Zero-Trust npm/bun CLI for macOS Silicon"
+  homepage "https://github.com/Positronico/snapem"
+  version "0.0.0"
+  license "MIT"
+
+  on_macos do
+    on_arm do
+      url "https://github.com/Positronico/snapem/releases/download/v#{version}/snapem_#{version}_darwin_arm64.tar.gz"
+      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+    end
+    on_intel do
+      url "https://github.com/Positronico/snapem/releases/download/v#{version}/snapem_#{version}_darwin_amd64.tar.gz"
+      sha256 "0000000000000000000000000000000000000000000000000000000000000000"
+    end
+  end
+
+  depends_on :macos
+  depends_on cask: "container"
+
+  def install
+    bin.install "snapem"
+  end
+
+  test do
+    system "#{bin}/snapem", "version"
+  end
+end
+FORMULA
 fi
 
 # Update version
