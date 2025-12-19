@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/positronico/snapem/internal/errors"
 )
@@ -124,8 +125,10 @@ func (p *Parser) GetDependencies(includeDev bool) ([]Package, error) {
 			if pkgInfo.Dev && !includeDev {
 				continue
 			}
-			// Extract package name from path (e.g., "node_modules/lodash" -> "lodash")
-			name := filepath.Base(pkgPath)
+			// Extract package name from path
+			// e.g., "node_modules/lodash" -> "lodash"
+			// e.g., "node_modules/@babel/core" -> "@babel/core"
+			name := extractPackageName(pkgPath)
 			if name == "" || pkgInfo.Version == "" {
 				continue
 			}
@@ -216,4 +219,26 @@ func (p *Parser) DetectPackageManager() string {
 func (p *Parser) HasManifest() bool {
 	_, err := os.Stat(filepath.Join(p.projectDir, "package.json"))
 	return err == nil
+}
+
+// extractPackageName extracts the package name from a lockfile path.
+// Handles both scoped (@scope/name) and unscoped (name) packages,
+// including nested dependencies.
+// Examples:
+//   - "node_modules/lodash" -> "lodash"
+//   - "node_modules/@babel/core" -> "@babel/core"
+//   - "node_modules/express/node_modules/debug" -> "debug"
+//   - "node_modules/@babel/core/node_modules/@types/node" -> "@types/node"
+func extractPackageName(pkgPath string) string {
+	const prefix = "node_modules/"
+
+	// Find the last occurrence of "node_modules/" to handle nested deps
+	lastIdx := strings.LastIndex(pkgPath, prefix)
+	if lastIdx == -1 {
+		// Unexpected format, fall back to basename
+		return filepath.Base(pkgPath)
+	}
+
+	// Extract everything after the last "node_modules/"
+	return pkgPath[lastIdx+len(prefix):]
 }
