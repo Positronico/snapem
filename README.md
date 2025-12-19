@@ -1,342 +1,443 @@
-# snapem
+  █████████                                  ██
+ ███░░░░░███                                ███
+░███    ░░░  ████████    ██████   ████████ ░░░   ██████  █████████████
+░░█████████ ░░███░░███  ░░░░░███ ░░███░░███     ███░░███░░███░░███░░███
+ ░░░░░░░░███ ░███ ░███   ███████  ░███ ░███    ░███████  ░███ ░███ ░███
+ ███    ░███ ░███ ░███  ███░░███  ░███ ░███    ░███░░░   ░███ ░███ ░███
+░░█████████  ████ █████░░████████ ░███████     ░░██████  █████░███ █████
+ ░░░░░░░░░  ░░░░ ░░░░░  ░░░░░░░░  ░███░░░       ░░░░░░  ░░░░░ ░░░ ░░░░░
+                                  ░███
+                                  █████
+                                 ░░░░░
 
-**Secure npm/bun wrapper for macOS Silicon** - A Zero-Trust Development Environment that scans dependencies for malware and vulnerabilities before running them in isolated Apple containers.
+# snapem - Secure npm for macOS
 
-## The Problem
+**A safer way to install npm packages.** snapem scans your dependencies for security issues before installing them, and runs everything in an isolated container so malicious code can't access your files.
 
-Modern web development relies heavily on third-party packages. A single malicious package can gain full access to your file system, SSH keys, and environment variables immediately upon installation via `postinstall` scripts.
+## Why Use snapem?
 
-## The Solution
+When you run `npm install`, packages can execute code on your computer immediately. A malicious package could:
 
-snapem provides defense-in-depth through three layers:
+- 📁 Read your SSH keys and upload them somewhere
+- 🔑 Steal credentials from environment variables
+- 📤 Send your source code to a remote server
+- 💻 Install a backdoor on your system
 
-1. **Pre-Flight Scanning** - Automatic behavioral analysis using [Socket.dev](https://socket.dev) (malware detection) and [Google OSV](https://osv.dev) (CVE database)
-2. **Execution Isolation** - All npm/bun commands run inside ephemeral Apple containers using the native Virtualization.framework
-3. **Network Segregation** - Optional network isolation to prevent data exfiltration during builds
+This isn't theoretical — supply chain attacks happen regularly. In 2024 alone, thousands of malicious packages were detected on npm.
 
-## Prerequisites
+**snapem protects you by:**
 
-### System Requirements
+1. **Scanning first** — Checks packages against security databases before installing
+2. **Running in isolation** — Uses macOS containers so packages can't access your real files
+3. **Blocking known threats** — Stops installation if malware or critical vulnerabilities are found
 
-- **macOS Sequoia 15.5+** on Apple Silicon (M1/M2/M3/M4)
-- **Xcode Command Line Tools** (for building from source)
+## Installation
 
-Check your macOS version:
-```bash
-sw_vers
-# ProductName:        macOS
-# ProductVersion:     15.5
-```
-
-### 1. Install Apple Container CLI
-
-The Apple Container CLI provides native Linux container support using the Virtualization.framework.
-
-```bash
-# Install via Homebrew
-brew install --cask container
-
-# Start the container system service
-container system start
-```
-
-On first run, it will prompt to install the Linux kernel:
-```
-No default kernel configured.
-Install the recommended default kernel? [Y/n]: Y
-```
-
-Verify the installation:
-```bash
-container system status
-# apiserver is running
-```
-
-Test that containers work:
-```bash
-container run --rm node:lts-slim node --version
-# v24.12.0
-```
-
-### 2. Configure Socket.dev API (Recommended)
-
-Socket.dev provides behavioral analysis for detecting malicious packages, typosquats, and supply chain attacks. This is **highly recommended** for full protection.
-
-#### Create a Free Account
-
-1. Go to [https://socket.dev](https://socket.dev)
-2. Click "Sign Up" and create a free account
-3. Verify your email address
-
-#### Generate an API Token
-
-1. Log in to your Socket.dev dashboard
-2. Navigate to **Settings** → **API Tokens**
-3. Click **"Create Token"**
-4. Give it a name (e.g., "snapem-local")
-5. Copy the generated token
-
-#### Configure the Token
-
-Add to your shell profile (`~/.zshrc` or `~/.bashrc`):
+### Option 1: Homebrew (Recommended)
 
 ```bash
-# Socket.dev API token for snapem malware detection
-export SOCKET_API_TOKEN="your-token-here"
+brew tap Positronico/tap
+brew install snapem
 ```
 
-Then reload your shell:
-```bash
-source ~/.zshrc
-```
-
-Verify it's set:
-```bash
-echo $SOCKET_API_TOKEN
-```
-
-> **Note:** Without a Socket.dev token, snapem will still work but will only scan for known CVEs (via Google OSV). Malware detection will be disabled, and you'll need to type `unsecure` when prompted.
-
-### 3. Install snapem
-
-#### From Source (Recommended)
+### Option 2: From Source
 
 ```bash
-git clone https://github.com/positronico/snapem.git
+git clone https://github.com/Positronico/snapem.git
 cd snapem
 make build
-
-# Install to your PATH
 sudo cp bin/snapem /usr/local/bin/
-
-# Or add to your PATH
-export PATH="$PATH:$(pwd)/bin"
 ```
 
-#### Using Go
+### Prerequisites
+
+snapem requires Apple's container runtime:
 
 ```bash
-go install github.com/positronico/snapem/cmd/snapem@latest
+# Install the container CLI
+brew install --cask container
+
+# Start the container service (first time only)
+container system start
+# When prompted to install the Linux kernel, type Y
 ```
 
-### Verify Installation
-
+Verify it's working:
 ```bash
-snapem version
-# snapem v1.0.0
-#   commit: abc123
-#   built:  2024-01-01T00:00:00Z
-#   go:     go1.22.0
-#   os:     darwin/arm64
+container run --rm node:lts-slim node --version
 ```
 
 ## Quick Start
 
+Use snapem exactly like you would use npm:
+
 ```bash
-# Navigate to your Node.js project
 cd my-project
 
-# Install dependencies (scans first, then runs in container)
+# Instead of: npm install
 snapem install
 
-# Run dev server in container (port auto-detected and published)
+# Instead of: npm run dev
 snapem run dev
-# → Server available at http://localhost:3000
 
-# Execute any command in container
-snapem exec -- node index.js
-
-# Run standalone security scan
-snapem scan
-```
-
-## Usage
-
-### Installing Dependencies
-
-```bash
-# Install all dependencies from package.json
-snapem install
-
-# Install specific packages
-snapem install lodash axios
-
-# Install as devDependency
-snapem install -D jest
-
-# Skip security scanning (not recommended)
-snapem install --skip-scan
-
-# Run without container (not recommended)
-snapem install --no-container
-```
-
-### Running Scripts
-
-```bash
-# Run npm scripts in container
-snapem run dev
+# Instead of: npm run build
 snapem run build
-snapem run test
-
-# Pass arguments to scripts
-snapem run test -- --watch
-
-# Run without network access (high security)
-snapem run build --no-network
 ```
 
-### Port Publishing (Dev Servers)
+That's it! snapem scans your packages, then runs everything safely in a container.
 
-When running dev servers (`dev`, `start`, `serve` scripts), snapem **automatically detects and publishes** the appropriate port based on your framework:
+## Setting Up Security Scanning
+
+snapem uses two security services:
+
+| Service | What it detects | API Key Required? |
+|---------|----------------|-------------------|
+| [Socket.dev](https://socket.dev) | Malware, suspicious code, typosquatting | Yes (free tier available) |
+| [Google OSV](https://osv.dev) | Known vulnerabilities (CVEs) | No |
+
+### Getting a Socket.dev API Key (Recommended)
+
+Without a Socket.dev key, snapem can only detect *known* vulnerabilities. With it, you also get protection against *new* malware that hasn't been reported yet.
+
+1. Go to [socket.dev](https://socket.dev) and create a free account
+2. Navigate to **Settings** → **API Tokens**
+3. Click **Create Token** and copy it
+4. Add to your shell profile (`~/.zshrc` or `~/.bashrc`):
 
 ```bash
-# Auto-detects port from your dependencies (e.g., 3000 for Express/Next.js)
-snapem run dev
-# ℹ Auto-detected port 3000 (use -p to override, --no-ports to disable)
-
-# Override with a custom port
-snapem run dev -p 8080
-
-# Map container port to different host port
-snapem run dev -p 8080:3000
-
-# Expose multiple ports
-snapem run dev -p 3000 -p 9229
-
-# Disable auto port detection
-snapem run dev --no-ports
+export SOCKET_API_TOKEN="your-token-here"
 ```
 
-**Supported frameworks and their default ports:**
+5. Reload your shell: `source ~/.zshrc`
 
-| Framework | Default Port |
-|-----------|--------------|
-| Next.js, Remix, Nuxt, Express, Fastify | 3000 |
-| Vite, SvelteKit | 5173 |
-| Vue CLI, Webpack Dev Server | 8080 |
-| Angular | 4200 |
-| Astro | 4321 |
-| Gatsby | 8000 |
-| Parcel | 1234 |
+> **Without a token:** snapem will warn you and ask you to type `unsecure` to continue. You'll still get CVE scanning, just not malware detection.
 
-snapem also parses your npm scripts for explicit `--port` or `PORT=` configurations.
+## Commands Reference
 
-### Executing Commands
+### `snapem install` — Install Packages
+
+Scans dependencies, then installs them in a container.
 
 ```bash
-# Run any command in container
-snapem exec -- node script.js
+snapem install                  # Install all from package.json
+snapem install lodash           # Install a specific package
+snapem install -D jest          # Install as dev dependency
+snapem install --skip-scan      # Skip scanning (not recommended)
+snapem install --no-container   # Run on host (not recommended)
+snapem install --force          # Continue even if threats found
+```
+
+### `snapem run` — Run Scripts
+
+Runs npm scripts inside a container.
+
+```bash
+snapem run dev                  # Run dev server
+snapem run build                # Run build script
+snapem run test                 # Run tests
+snapem run test -- --watch      # Pass arguments after --
+```
+
+**Port forwarding:** For dev servers, snapem automatically detects and exposes the right port:
+
+```bash
+snapem run dev                  # Auto-detects port (e.g., 3000)
+snapem run dev -p 8080          # Use custom port
+snapem run dev -p 8080:3000     # Map 8080 on host to 3000 in container
+snapem run dev --no-ports       # Disable auto port detection
+snapem run build --no-network   # Run without network access
+```
+
+### `snapem exec` — Run Any Command
+
+Execute arbitrary commands in the container.
+
+```bash
+snapem exec -- node index.js
 snapem exec -- npx prisma migrate
 snapem exec -- sh -c "ls -la"
-
-# Use custom container image
-snapem exec --image node:20 -- node --version
 ```
 
-> **Important:** Use `--` to separate snapem flags from the command arguments, especially when your command has flags starting with `-` or `--`.
+> **Important:** Use `--` before your command to separate snapem flags from command arguments.
 
-### Security Scanning
+### `snapem scan` — Security Scan Only
+
+Scan without installing — useful for auditing existing projects.
 
 ```bash
-# Scan all dependencies
-snapem scan
-
-# Output as JSON
-snapem scan --json
-
-# Scan only production dependencies
-snapem scan --include prod
+snapem scan                     # Scan all dependencies
+snapem scan --json              # Output as JSON
+snapem scan --include prod      # Only production deps
+snapem scan --include dev       # Only dev deps
 ```
 
-## Configuration
-
-Create a `snapem.yaml` in your project or `~/.config/snapem/config.yaml`:
+### `snapem config` — Manage Configuration
 
 ```bash
-snapem config init
+snapem config show              # Display current settings
+snapem config init              # Create a config file
 ```
 
-View current configuration:
+### `snapem version` — Show Version
+
 ```bash
-snapem config show
+snapem version                  # Show version info
 ```
 
-### Configuration Options
+## Understanding Security Policies
+
+When snapem finds a security issue, it takes an action based on your policy settings. There are three possible actions:
+
+| Action | What happens |
+|--------|-------------|
+| `block` | Stop installation, show error, ask for confirmation to continue |
+| `warn` | Show warning, continue with installation |
+| `ignore` | Don't show anything, continue silently |
+
+### Default Policies
+
+| Threat Type | Default Action | Why |
+|-------------|---------------|-----|
+| Malware | `block` | Known malicious code should never be installed |
+| Critical CVE | `block` | Severe vulnerabilities with known exploits |
+| High CVE | `block` | Serious vulnerabilities that should be fixed |
+| Medium CVE | `block` | Moderate risk, worth reviewing |
+| Low CVE | `warn` | Minor issues, shown but don't stop installation |
+
+### Customizing Policies
+
+Create a `snapem.yaml` file in your project:
 
 ```yaml
-# Package manager: auto, npm, bun
-package_manager:
-  preferred: auto
-
-# Security scanning
 scanning:
-  enabled: true
+  policy:
+    # What to do when malware is detected
+    malware: block    # block, warn, or ignore
 
+    # What to do for each CVE severity level
+    cve:
+      critical: block
+      high: block
+      medium: warn    # Changed: just warn for medium
+      low: ignore     # Changed: ignore low severity
+
+    # Can users bypass blocks with --force?
+    allow_override: true
+
+    # Always trust these packages (skip scanning)
+    allowlist:
+      - lodash
+      - express
+
+    # Always block these packages
+    blocklist:
+      - malicious-package
+```
+
+### When You Hit a Block
+
+If snapem blocks an installation, you have options:
+
+```bash
+# Option 1: Force continue (use with caution!)
+snapem install --force
+
+# Option 2: Add to allowlist in snapem.yaml
+# (if you've reviewed the package and trust it)
+
+# Option 3: Fix the issue
+# Update to a patched version of the package
+```
+
+## Shell Completions
+
+Enable tab completion for faster command entry.
+
+### Zsh (default on macOS)
+
+```bash
+# Add to ~/.zshrc
+source <(snapem completion zsh)
+```
+
+Or install to completions directory:
+```bash
+snapem completion zsh > "${fpath[1]}/_snapem"
+```
+
+### Bash
+
+```bash
+# Add to ~/.bashrc
+source <(snapem completion bash)
+```
+
+### Fish
+
+```bash
+snapem completion fish > ~/.config/fish/completions/snapem.fish
+```
+
+After adding, restart your shell or run `source ~/.zshrc` (or equivalent).
+
+## Configuration File
+
+snapem looks for configuration in:
+1. `./snapem.yaml` (project directory)
+2. `~/.config/snapem/config.yaml` (user home)
+
+### Full Configuration Reference
+
+```yaml
+# Which package manager to use
+package_manager:
+  preferred: auto    # auto, npm, or bun
+
+# Security scanning settings
+scanning:
+  enabled: true      # Set to false to disable all scanning
+
+  # Socket.dev (malware detection)
   socket:
     enabled: true
     timeout: 30s
 
+  # Google OSV (CVE database)
   osv:
     enabled: true
     timeout: 30s
 
+  # Cache scan results to speed up repeated installs
   cache:
     enabled: true
-    ttl: 24h
+    ttl: 24h         # How long to cache results
 
+  # Security policies (see "Understanding Security Policies" above)
   policy:
-    malware: block      # block, warn, ignore
+    malware: block
     cve:
       critical: block
-      high: warn
-      medium: warn
-      low: ignore
-    allow_override: true
-    allowlist: []       # Trusted packages to skip scanning
-    blocklist: []       # Packages to always block
+      high: block
+      medium: block
+      low: warn
+    allow_override: false
+    allowlist: []
+    blocklist: []
 
 # Container settings
 container:
-  enabled: true
+  enabled: true      # Set to false to run on host
   image:
     npm: node:lts-slim
     bun: oven/bun:latest
-  network: host         # host, none
+  network: host      # host (normal) or none (isolated)
+
+# Output settings
+ui:
+  color: true        # Colored terminal output
+  verbose: false     # Extra debug info
+  quiet: false       # Minimal output
 ```
 
 ### Environment Variables
 
-```bash
-# Socket.dev API token (required for malware detection)
-export SOCKET_API_TOKEN="your-token-here"
+Any setting can be overridden with environment variables:
 
-# Override any config option
-export SNAPEM_SCANNING_ENABLED=false
-export SNAPEM_CONTAINER_NETWORK=none
+```bash
+export SOCKET_API_TOKEN="your-token"           # Required for malware scanning
+export SNAPEM_SCANNING_ENABLED=false           # Disable scanning
+export SNAPEM_CONTAINER_NETWORK=none           # No network in container
+export SNAPEM_PACKAGE_MANAGER_PREFERRED=bun    # Use bun instead of npm
+```
+
+## Global Flags
+
+These flags work with any command:
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--config FILE` | | Use a specific config file |
+| `--verbose` | `-v` | Show detailed output |
+| `--quiet` | `-q` | Show only errors |
+| `--no-color` | | Disable colored output |
+| `--package-manager` | | Force npm or bun |
+| `--help` | `-h` | Show help for any command |
+
+## Troubleshooting
+
+### "Apple container runtime not available"
+
+The container CLI isn't installed or running:
+
+```bash
+brew install --cask container
+container system start
+```
+
+### "XPC connection error"
+
+The container service isn't running:
+
+```bash
+container system start
+container system status   # Should show "apiserver is running"
+```
+
+### "No SOCKET_API_TOKEN set"
+
+You have two options:
+1. Set up a token (see [Setting Up Security Scanning](#setting-up-security-scanning))
+2. Type `unsecure` when prompted to continue without malware scanning
+
+### Commands with flags aren't working
+
+Use `--` to separate snapem flags from your command:
+
+```bash
+# Wrong — snapem thinks --version is its flag
+snapem exec node --version
+
+# Correct — everything after -- goes to the container
+snapem exec -- node --version
+```
+
+### First run is slow
+
+The first run downloads container images (~50MB). Subsequent runs use cached images and start instantly.
+
+### Port not accessible
+
+Make sure the port is being published:
+
+```bash
+# Check what port was detected
+snapem run dev -v
+
+# Manually specify the port
+snapem run dev -p 3000
 ```
 
 ## How It Works
 
-### Security Scan Flow
+### The Security Scan
 
 ```
-1. Parse package.json and lockfile
-2. Extract all dependencies with versions
-3. Concurrent API calls:
-   ├─ Socket.dev: Check for malware, typosquats, suspicious behavior
-   └─ Google OSV: Check for known CVEs
-4. Apply security policy:
-   ├─ Block: Stop and show error
-   ├─ Warn: Show warning, continue
-   └─ Ignore: Silent continue
-5. If blocked, prompt for 'force' override
+┌─────────────────────────────────────────────────────────┐
+│  1. Read package.json and lockfile                      │
+│  2. Extract all package names and versions              │
+│  3. Query security APIs (in parallel):                  │
+│     ├── Socket.dev → malware, typosquats, suspicious    │
+│     └── Google OSV → known CVEs                         │
+│  4. Apply your security policy                          │
+│  5. Block or warn based on findings                     │
+└─────────────────────────────────────────────────────────┘
 ```
 
-### Container Execution
+### The Container
+
+When you run `snapem install`, it actually runs:
 
 ```bash
-# What snapem actually runs:
 container run \
   --rm \
   --volume "$(pwd):/app" \
@@ -345,113 +446,37 @@ container run \
   npm install
 ```
 
-The container:
-- Mounts only your project directory at `/app`
-- Has no access to `~/.ssh`, `~/.aws`, or macOS Keychain
-- Is destroyed immediately after the command finishes
-- Uses hardware-accelerated virtualization (fast!)
+This means:
+- ✅ Your project files are available at `/app`
+- ❌ No access to `~/.ssh`, `~/.aws`, or other sensitive directories
+- ❌ No access to macOS Keychain
+- ✅ Container is deleted after the command finishes
+- ✅ Uses Apple's fast hardware virtualization
 
-## Security Considerations
+## What snapem Protects Against
 
-### What snapem protects against
+| Threat | Protection |
+|--------|-----------|
+| Malicious install scripts | ✅ Container isolation |
+| Typosquatting (e.g., `loddash`) | ✅ Socket.dev detection |
+| Known CVEs | ✅ Google OSV scanning |
+| Data exfiltration | ✅ Optional network isolation |
+| Credential theft | ✅ No access to host credentials |
 
-- Malicious `postinstall` scripts accessing your filesystem
-- Typosquatting attacks (e.g., `loddash` instead of `lodash`)
-- Known CVEs in dependencies
-- Supply chain attacks during installation
-
-### What snapem does NOT protect against
+## What snapem Does NOT Protect Against
 
 - Vulnerabilities in your own code
 - Runtime attacks in production
-- Social engineering
-- Compromised registries (npm itself)
-
-### Recommended Workflow
-
-1. Always use `snapem install` instead of `npm install`
-2. Always use `snapem run` instead of `npm run`
-3. Set `SOCKET_API_TOKEN` for malware detection
-4. Review security warnings before overriding
-5. Use `--no-network` for builds that don't need network access
-
-## Troubleshooting
-
-### "Apple container runtime not available"
-
-Install and start the container CLI:
-```bash
-brew install --cask container
-container system start
-```
-
-If prompted for kernel installation, type `Y`.
-
-### "XPC connection error: Connection invalid"
-
-The container system service is not running:
-```bash
-container system start
-container system status  # Should show "apiserver is running"
-```
-
-### "No SOCKET_API_TOKEN set"
-
-Either:
-1. Set the token: `export SOCKET_API_TOKEN="your-token"` (see [Configure Socket.dev API](#2-configure-socketdev-api-recommended))
-2. Type `unsecure` when prompted to continue without malware scanning
-
-### Commands with flags not working
-
-Use `--` to separate snapem flags from command arguments:
-```bash
-# Wrong - snapem interprets --version as its own flag
-snapem exec node --version
-
-# Correct - everything after -- goes to the container
-snapem exec -- node --version
-```
-
-### Slow first run
-
-The first run downloads the container image (~50MB for node:lts-slim). Subsequent runs use the cached image and start in sub-seconds.
-
-### Container networking issues
-
-On macOS Sequoia 15.x, containers have network access by default. If you experience issues:
-```bash
-# Check if DNS is working inside container
-snapem exec -- ping -c 1 google.com
-```
-
-## Development
-
-```bash
-# Build
-make build
-
-# Run tests
-make test
-
-# Format code
-make fmt
-
-# Build release binary
-make build-release
-
-# Clean
-make clean
-```
+- Compromised npm registry
+- Social engineering attacks
 
 ## License
 
-MIT
+MIT — See [LICENSE](LICENSE)
 
 ## Credits
 
-- [Apple Containerization](https://github.com/apple/containerization) - Native container runtime
-- [Socket.dev](https://socket.dev) - Supply chain security
-- [Google OSV](https://osv.dev) - Vulnerability database
-- [Cobra](https://github.com/spf13/cobra) - CLI framework
-- [Viper](https://github.com/spf13/viper) - Configuration
-- [Lipgloss](https://github.com/charmbracelet/lipgloss) - Terminal styling
+- [Apple Containerization](https://github.com/apple/containerization) — Native container runtime
+- [Socket.dev](https://socket.dev) — Supply chain security
+- [Google OSV](https://osv.dev) — Vulnerability database
+- [Cobra](https://github.com/spf13/cobra) — CLI framework
