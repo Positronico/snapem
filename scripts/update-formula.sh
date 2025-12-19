@@ -12,7 +12,9 @@ fi
 
 VERSION="${1#v}"  # Strip 'v' prefix if present
 REPO="Positronico/snapem"
-FORMULA="Formula/snapem.rb"
+TAP_REPO="git@github.com:Positronico/homebrew-tap.git"
+TAP_DIR="${HOME}/.homebrew-tap"
+FORMULA_NAME="snapem.rb"
 
 echo "Updating formula to version $VERSION..."
 
@@ -41,27 +43,56 @@ fi
 echo "  arm64: $SHA_ARM64"
 echo "  amd64: $SHA_AMD64"
 
-# Update version
-sed -i '' "s/version \"[^\"]*\"/version \"$VERSION\"/" "$FORMULA"
+# Clone or pull homebrew-tap repo
+echo ""
+echo "Updating homebrew-tap repository..."
 
-# Update arm64 sha256 (the first sha256 in the file, after on_arm)
-# Using a more targeted approach with awk
+if [ -d "$TAP_DIR" ]; then
+  echo "  Pulling latest changes..."
+  git -C "$TAP_DIR" pull --quiet
+else
+  echo "  Cloning repository..."
+  git clone --quiet "$TAP_REPO" "$TAP_DIR"
+fi
+
+# Ensure Formula directory exists
+mkdir -p "$TAP_DIR/Formula"
+
+# Copy current formula as base (if exists) or create new
+FORMULA_PATH="$TAP_DIR/Formula/$FORMULA_NAME"
+
+if [ ! -f "$FORMULA_PATH" ]; then
+  echo "  Creating new formula..."
+  cp "Formula/$FORMULA_NAME" "$FORMULA_PATH"
+fi
+
+# Update version
+sed -i '' "s/version \"[^\"]*\"/version \"$VERSION\"/" "$FORMULA_PATH"
+
+# Update arm64 sha256
 awk -v sha="$SHA_ARM64" '
   /on_arm do/ { in_arm=1 }
   in_arm && /sha256/ { sub(/"[a-f0-9]{64}"/, "\"" sha "\""); in_arm=0 }
   { print }
-' "$FORMULA" > "$FORMULA.tmp" && mv "$FORMULA.tmp" "$FORMULA"
+' "$FORMULA_PATH" > "$FORMULA_PATH.tmp" && mv "$FORMULA_PATH.tmp" "$FORMULA_PATH"
 
-# Update amd64 sha256 (after on_intel)
+# Update amd64 sha256
 awk -v sha="$SHA_AMD64" '
   /on_intel do/ { in_intel=1 }
   in_intel && /sha256/ { sub(/"[a-f0-9]{64}"/, "\"" sha "\""); in_intel=0 }
   { print }
-' "$FORMULA" > "$FORMULA.tmp" && mv "$FORMULA.tmp" "$FORMULA"
+' "$FORMULA_PATH" > "$FORMULA_PATH.tmp" && mv "$FORMULA_PATH.tmp" "$FORMULA_PATH"
 
-echo "Formula updated successfully!"
+# Commit and push
 echo ""
-echo "Next steps:"
-echo "  git add Formula/snapem.rb"
-echo "  git commit -m \"Update formula to v$VERSION\""
-echo "  git push"
+echo "Committing and pushing to homebrew-tap..."
+git -C "$TAP_DIR" add Formula/$FORMULA_NAME
+git -C "$TAP_DIR" commit -m "Update snapem to v$VERSION"
+git -C "$TAP_DIR" push
+
+echo ""
+echo "Formula updated and pushed successfully!"
+echo ""
+echo "Users can now install with:"
+echo "  brew tap Positronico/tap"
+echo "  brew install snapem"

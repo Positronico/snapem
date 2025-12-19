@@ -51,7 +51,7 @@ Wait until status shows `completed` and `success`.
 
 ### 4. Update Homebrew Formula
 
-Once the release is complete, update the formula with new checksums:
+Once the release is complete, update the formula in the homebrew-tap repo:
 
 ```bash
 ./scripts/update-formula.sh v<VERSION>
@@ -62,15 +62,13 @@ Example:
 ./scripts/update-formula.sh v0.2.0
 ```
 
-### 5. Commit and Push Formula
+This script will:
+- Fetch checksums from the GitHub release
+- Clone/pull the homebrew-tap repo to `~/.homebrew-tap`
+- Update the formula with new version and checksums
+- Commit and push to homebrew-tap
 
-```bash
-git add Formula/snapem.rb
-git commit -m "Update formula to v<VERSION>"
-git push
-```
-
-### 6. Verify Release
+### 5. Verify Release
 
 Check the GitHub release page:
 ```bash
@@ -98,11 +96,8 @@ git tag v$VERSION && git push origin v$VERSION
 # Wait for release
 gh run watch
 
-# Update formula
+# Update formula (auto-commits to homebrew-tap)
 ./scripts/update-formula.sh v$VERSION
-
-# Commit formula
-git add Formula/snapem.rb && git commit -m "Update formula to v$VERSION" && git push
 
 # Verify
 gh release view v$VERSION
