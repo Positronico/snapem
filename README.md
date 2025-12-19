@@ -57,7 +57,7 @@ snapem requires Apple's container runtime:
 
 ```bash
 # Install the container CLI
-brew install --cask container
+brew install container
 
 # Start the container service (first time only)
 container system start
