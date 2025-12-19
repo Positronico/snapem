@@ -28,6 +28,22 @@
 - [x] Exec arbitrary commands
 - [x] Configuration display
 - [x] Network isolation (--network none)
+- [x] Homebrew installation
+
+### Distribution
+- [x] GoReleaser setup (.goreleaser.yaml)
+- [x] GitHub Actions release workflow
+- [x] Homebrew tap (Positronico/homebrew-tap)
+- [x] Formula update script (scripts/update-formula.sh)
+- [x] Shell completions (bash/zsh/fish via Cobra)
+
+### Documentation
+- [x] README with beginner-friendly explanations
+- [x] Security policies documentation
+- [x] Shell completions instructions
+- [x] Full configuration reference
+- [x] Troubleshooting guide
+- [x] Release workflow documentation (WORKFLOW.md)
 
 ## High Priority
 
@@ -56,21 +72,6 @@
   - Exponential backoff for retries
 
 ## Medium Priority
-
-### Distribution
-- [x] **GoReleaser setup**
-  - Create `.goreleaser.yaml`
-  - Configure for darwin/arm64 (macOS Silicon)
-  - Set up GitHub Actions for releases
-
-- [ ] **Homebrew formula**
-  - Create tap repository
-  - Write formula with container dependency
-  - Test installation flow
-
-- [ ] **Shell completions**
-  - Generate bash/zsh/fish completions
-  - Add to install instructions
 
 ### User Experience
 - [ ] **Progress indicators**
@@ -114,9 +115,7 @@
 - [ ] Metrics (scan duration, cache hit rates)
 
 ## Documentation
-- [ ] Detailed configuration reference
 - [ ] Security best practices guide
-- [ ] Troubleshooting guide
 - [ ] Contributing guide
 
 ## Ideas for Future
