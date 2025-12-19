@@ -81,11 +81,15 @@ class Snapem < Formula
     end
   end
 
-  depends_on :macos
-  depends_on cask: "container"
-
   def install
     bin.install "snapem"
+  end
+
+  def caveats
+    <<~EOS
+      snapem requires Apple's container CLI for isolation features.
+      Install it with: brew install --cask container
+    EOS
   end
 
   test do
