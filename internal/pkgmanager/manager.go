@@ -2,6 +2,7 @@ package pkgmanager
 
 import (
 	"path/filepath"
+	"strings"
 
 	"github.com/positronico/snapem/internal/container"
 	"github.com/positronico/snapem/internal/manifest"
@@ -122,10 +123,71 @@ func (b *Bun) Image() string {
 	return b.image
 }
 
+// PNPM implements the Manager interface for pnpm.
+//
+// pnpm isn't pre-installed in the standard node image. We rely on Node's
+// built-in corepack (shipped with node:lts since 16.13) to materialize
+// pnpm at runtime. First container start downloads the binary; subsequent
+// starts use whatever the previous run left in the corepack cache.
+type PNPM struct {
+	image string
+}
+
+// NewPNPM creates a new pnpm manager.
+func NewPNPM(image string) *PNPM {
+	if image == "" {
+		image = "node:lts-slim"
+	}
+	return &PNPM{image: image}
+}
+
+// Name returns "pnpm".
+func (p *PNPM) Name() string { return "pnpm" }
+
+// InstallCommand returns the corepack-enabled pnpm install command.
+func (p *PNPM) InstallCommand(packages []string, saveDev bool) []string {
+	cmd := "corepack pnpm install"
+	if saveDev {
+		cmd += " --save-dev"
+	}
+	for _, pkg := range packages {
+		cmd += " " + shellQuote(pkg)
+	}
+	return []string{"sh", "-c", "corepack enable >/dev/null 2>&1; " + cmd}
+}
+
+// RunCommand returns the corepack-enabled pnpm run command, wrapped so
+// Ctrl+C cleanly exits when pnpm runs as PID 1.
+func (p *PNPM) RunCommand(script string, args []string) []string {
+	cmdLine := "corepack pnpm run " + shellQuote(script)
+	for _, a := range args {
+		cmdLine += " " + shellQuote(a)
+	}
+	return []string{"sh", "-c", "trap 'exit 0' INT TERM; corepack enable >/dev/null 2>&1; " + cmdLine}
+}
+
+// ExecCommand passes the user's command through unchanged. pnpm itself
+// isn't on PATH unless corepack has prepared it, so non-pnpm commands
+// run cleanly via this path.
+func (p *PNPM) ExecCommand(command []string) []string { return command }
+
+// Image returns the pnpm container image.
+func (p *PNPM) Image() string { return p.image }
+
+// shellQuote returns s wrapped in single quotes with any embedded single
+// quotes escaped, safe for splicing into a `sh -c` command line.
+func shellQuote(s string) string {
+	if s == "" {
+		return "''"
+	}
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
+}
+
 // Detect determines which package manager to use based on the project
 func Detect(projectDir string, preferred string, images map[string]string) Manager {
 	npmImage := images["npm"]
 	bunImage := images["bun"]
+	pnpmImage := images["pnpm"]
 
 	// If user specified a preference, use it
 	switch preferred {
@@ -133,6 +195,8 @@ func Detect(projectDir string, preferred string, images map[string]string) Manag
 		return NewNPM(npmImage)
 	case "bun":
 		return NewBun(bunImage)
+	case "pnpm":
+		return NewPNPM(pnpmImage)
 	}
 
 	// Auto-detect based on lockfiles. Prefer bun.lock (text) since it's
@@ -141,6 +205,9 @@ func Detect(projectDir string, preferred string, images map[string]string) Manag
 	parser := manifest.NewParser(projectDir)
 	if parser.HasBunTextLockfile() || parser.HasBunLockfile() {
 		return NewBun(bunImage)
+	}
+	if parser.HasPnpmLockfile() {
+		return NewPNPM(pnpmImage)
 	}
 
 	// Default to npm
