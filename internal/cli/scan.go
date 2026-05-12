@@ -238,13 +238,9 @@ func outputTextResult(cfg *config.Config, display *ui.UI, result *scanner.Aggreg
 		}
 	}
 
-	// Return error if blocking issues
-	if result.HasMalware && cfg.ShouldBlock(cfg.Scanning.Policy.Malware) {
-		return errors.SecurityBlockError("malware detected")
+	// Block based on the full policy table, not just malware + critical.
+	if decision := scanner.EvaluatePolicy(cfg, result); decision.ShouldBlock {
+		return errors.SecurityBlockError("security threats detected")
 	}
-	if result.HasCritical && cfg.ShouldBlock(cfg.GetCVEAction("critical")) {
-		return errors.SecurityBlockError("critical vulnerabilities detected")
-	}
-
 	return nil
 }
