@@ -156,8 +156,9 @@ func (u *UI) ScannerStatus(scanner string, status string, isRunning bool) {
 	}
 }
 
-// ThreatFound prints a threat message
-func (u *UI) ThreatFound(severity, pkg, desc string) {
+// ThreatFound prints a threat message. fix is an optional remediation
+// string (e.g. "Fixed in 4.17.21"); empty means "no fix surfaced".
+func (u *UI) ThreatFound(severity, pkg, desc, fix string) {
 	if u.quiet {
 		return
 	}
@@ -176,9 +177,15 @@ func (u *UI) ThreatFound(severity, pkg, desc string) {
 	if u.useColor {
 		os.Stdout.WriteString("  " + style.Render("▶ "+severity) + " " + StyleBold.Render(pkg) + "\n")
 		os.Stdout.WriteString("    " + StyleMuted.Render(desc) + "\n")
+		if fix != "" {
+			os.Stdout.WriteString("    " + StyleSuccess.Render("→ "+fix) + "\n")
+		}
 	} else {
 		os.Stdout.WriteString("  [" + severity + "] " + pkg + "\n")
 		os.Stdout.WriteString("    " + desc + "\n")
+		if fix != "" {
+			os.Stdout.WriteString("    -> " + fix + "\n")
+		}
 	}
 }
 

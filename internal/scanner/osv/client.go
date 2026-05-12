@@ -189,6 +189,7 @@ func (c *Client) convertToFindings(packages []manifest.Package, resp *batchRespo
 				Description: truncate(merged.Details, 500),
 				ID:          merged.ID,
 				References:  c.extractReferences(merged.References),
+				Remediation: remediationFor(merged, pkg.Name),
 			}
 			findings = append(findings, finding)
 		}
