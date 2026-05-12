@@ -43,6 +43,9 @@ test: ## Run tests
 test-verbose: ## Run tests with verbose output
 	go test -race -v ./...
 
+test-e2e: ## Run E2E tests against the real Apple container runtime (requires `container system start`)
+	go test -race -tags container_e2e -v -run E2E ./internal/container/...
+
 test-coverage: ## Run tests with coverage
 	go test -race -coverprofile=coverage.out ./...
 	go tool cover -html=coverage.out -o coverage.html
