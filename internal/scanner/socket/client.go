@@ -37,6 +37,18 @@ func NewClient(cfg config.SocketConfig) *Client {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 3
 	retryClient.Logger = nil // Disable logging
+	// go-retryablehttp's default policy retries 5xx but ignores 429.
+	// Socket's free tier rate-limits before any tier-pricing kicks in,
+	// so we extend the policy. retryablehttp.DefaultBackoff already
+	// honors a Retry-After response header, so the wait between
+	// attempts matches whatever Socket asks for.
+	retryClient.CheckRetry = retryOn429
+	retryClient.Backoff = retryablehttp.DefaultBackoff
+	// Without a custom ErrorHandler, retryablehttp swallows the last
+	// response on max-retries-exhausted and returns only "giving up after
+	// N attempts", which hides the underlying status code. Override so a
+	// persistent 429 surfaces as a clear "rate limit" error.
+	retryClient.ErrorHandler = rateLimitAwareErrorHandler
 
 	return &Client{
 		httpClient: retryClient.StandardClient(),
@@ -45,6 +57,30 @@ func NewClient(cfg config.SocketConfig) *Client {
 		endpoint:   baseURL + "/purl",
 		batchSize:  maxBatchSize,
 	}
+}
+
+// retryOn429 augments the default policy: also retry 429 responses so
+// transient rate-limit blips don't fail the scan. Permanent errors
+// (4xx other than 429, 501) still bubble up.
+func retryOn429(ctx context.Context, resp *http.Response, err error) (bool, error) {
+	if resp != nil && resp.StatusCode == http.StatusTooManyRequests {
+		return true, nil
+	}
+	return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
+}
+
+// rateLimitAwareErrorHandler runs when retryablehttp gives up. If the
+// final response was a 429, replace the opaque "giving up" wrap with
+// something a human can act on.
+func rateLimitAwareErrorHandler(resp *http.Response, err error, numTries int) (*http.Response, error) {
+	if resp != nil {
+		status := resp.StatusCode
+		resp.Body.Close()
+		if status == http.StatusTooManyRequests {
+			return nil, fmt.Errorf("Socket API rate limit exceeded after %d attempts (Retry-After honored)", numTries)
+		}
+	}
+	return nil, err
 }
 
 // Name returns the scanner name

@@ -66,11 +66,12 @@
   - TTL from `scanning.cache.ttl`; schema-versioned so future shape changes invalidate cleanly
   - Per-scanner decorator so dedup at the orchestrator and chunking at the client both still apply to the miss set
   - Misconfigured cache directory degrades to no-cache rather than failing the scan
-  - Follow-up: `snapem cache clear` subcommand
+  - `snapem cache info` / `snapem cache clear` subcommands
 
-- [ ] **Rate limiting**
-  - Handle Socket.dev rate limits gracefully
-  - Exponential backoff for retries
+- [x] **Rate limiting**
+  - Custom CheckRetry on both clients adds 429 to the retry-able statuses
+  - Backoff honors `Retry-After` header (via go-retryablehttp DefaultBackoff)
+  - ErrorHandler surfaces a clean "rate limit exceeded after N attempts" when retries exhaust, instead of the opaque "giving up" wrap
 
 ### Bugs fixed this iteration (kept here so they don't recur silently)
 - [x] Blocklist was silently ignored on install/scan (ScanWithProgress diverged from Scan)

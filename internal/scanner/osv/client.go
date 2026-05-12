@@ -43,6 +43,12 @@ func NewClient(cfg config.OSVConfig) *Client {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = 3
 	retryClient.Logger = nil // Disable logging
+	// Same rationale as the Socket client: extend the retry policy to
+	// cover 429 so a brief OSV rate-limit doesn't fail the scan. Backoff
+	// already honors Retry-After.
+	retryClient.CheckRetry = retryOn429
+	retryClient.Backoff = retryablehttp.DefaultBackoff
+	retryClient.ErrorHandler = rateLimitAwareErrorHandler
 
 	return &Client{
 		httpClient:    retryClient.StandardClient(),
@@ -51,6 +57,24 @@ func NewClient(cfg config.OSVConfig) *Client {
 		vulnsEndpoint: vulnsURL,
 		batchSize:     maxBatchSize,
 	}
+}
+
+func retryOn429(ctx context.Context, resp *http.Response, err error) (bool, error) {
+	if resp != nil && resp.StatusCode == http.StatusTooManyRequests {
+		return true, nil
+	}
+	return retryablehttp.DefaultRetryPolicy(ctx, resp, err)
+}
+
+func rateLimitAwareErrorHandler(resp *http.Response, err error, numTries int) (*http.Response, error) {
+	if resp != nil {
+		status := resp.StatusCode
+		resp.Body.Close()
+		if status == http.StatusTooManyRequests {
+			return nil, fmt.Errorf("OSV API rate limit exceeded after %d attempts (Retry-After honored)", numTries)
+		}
+	}
+	return nil, err
 }
 
 // Name returns the scanner name
