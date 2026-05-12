@@ -5,6 +5,7 @@ All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 ## Unreleased
 
 ### Added
+- `snapem agent` subcommand. `snapem agent install` writes an instruction file that teaches AI coding assistants (Claude Code, AGENTS.md-aware tools) to use snapem instead of invoking npm/bun/pnpm directly — including how to surface block-severity findings with their `Fixed in X.Y.Z` remediation instead of bypassing them. Default writes a Claude Code skill at `~/.claude/skills/snapem.md`; `--format=md` writes `./AGENTS.md` in plain markdown. Refuses to overwrite existing files without `--force`.
 - `snapem doctor` subcommand. Inspects the runtime environment (container CLI, service status, `SOCKET_API_TOKEN`, cache directory, OSV/Socket reachability) and prints a checklist. Exits non-zero only on blocking issues; missing token surfaces as a warning.
 - `--read-only` flag on `snapem exec` and `snapem run`. Mounts the project at `/app` with `:ro` so untrusted scripts can't write back to your source. Not added to `install` (npm needs to write `node_modules` and `package-lock.json`).
 - Build-tag-gated E2E test suite for the Apple container runtime (`make test-e2e`). Three cases: bind-mount writability, read-only volume rejection, `--network none` blocking DNS. Skips cleanly when the container service is down.
