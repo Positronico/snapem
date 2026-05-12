@@ -117,6 +117,35 @@ export SOCKET_API_TOKEN="your-token-here"
 
 > **Without a token:** snapem will warn you and ask you to type `unsecure` to continue. You'll still get CVE scanning, just not malware detection.
 
+## AI Assistant Integration
+
+If you use Claude Code (or another AI coding assistant), one extra command teaches it to use snapem instead of running `npm` / `bun` / `pnpm` directly.
+
+### Claude Code
+
+```bash
+snapem agent install
+```
+
+That writes `~/.claude/skills/snapem.md`. Claude Code picks it up automatically — restart any running session (or open a new one) and Claude will translate `npm install lodash` → `snapem install lodash`, `npm run dev` → `snapem run dev`, `npx prisma migrate` → `snapem exec -- npx prisma migrate`, and `npm audit` → `snapem scan` in projects where the `snapem` command is on PATH. It will also surface block-severity findings (with the `Fixed in X.Y.Z` remediation) instead of silently bypassing them.
+
+### Other tools (Codex, Cursor, generic `AGENTS.md`)
+
+```bash
+snapem agent install --format=md
+```
+
+Writes `./AGENTS.md` in plain markdown, which most AGENTS.md-aware tools ingest automatically.
+
+### Preview without installing
+
+```bash
+snapem agent show               # Claude Code skill format (with frontmatter)
+snapem agent show --format=md   # plain markdown
+```
+
+Refuses to overwrite an existing file by default. Pass `--force` if you've customized your skill and want to start fresh, or `--output PATH` to write somewhere else (e.g., a project-local `CLAUDE.md`).
+
 ## Commands Reference
 
 ### `snapem install` — Install Packages
@@ -187,6 +216,29 @@ snapem config init              # Create a config file
 
 ```bash
 snapem version                  # Show version info
+```
+
+### `snapem doctor` — Diagnose Your Setup
+
+```bash
+snapem doctor                   # Checklist of container CLI, service, token, etc.
+```
+
+### `snapem cache` — Inspect or Clear the Scan Cache
+
+```bash
+snapem cache info               # Path, TTL, entry count, total bytes
+snapem cache clear              # Delete every cached scan result
+```
+
+### `snapem agent` — Generate AI Assistant Instructions
+
+See [AI Assistant Integration](#ai-assistant-integration) above.
+
+```bash
+snapem agent install            # ~/.claude/skills/snapem.md (Claude Code)
+snapem agent install --format=md  # ./AGENTS.md
+snapem agent show               # Print to stdout instead of writing
 ```
 
 ## Understanding Security Policies
