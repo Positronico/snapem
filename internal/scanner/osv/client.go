@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -157,47 +158,67 @@ func (c *Client) convertToFindings(packages []manifest.Package, resp *batchRespo
 	return findings
 }
 
+// mapSeverity resolves a vulnerability to one of our internal severity
+// buckets. Precedence (highest confidence first):
+//
+//  1. database_specific.severity string (GHSA-published level).
+//  2. CVSS v3 vector or numeric score parsed via cvssScore().
+//  3. Ecosystem-typed severity strings (legacy OSV form).
+//  4. Medium as last resort — see CLAUDE.md §8.2 for why this matters.
 func (c *Client) mapSeverity(vuln vulnerability) types.Severity {
-	// Check CVSS scores first
-	for _, sev := range vuln.Severity {
-		if sev.Type == "CVSS_V3" {
-			score := parseCVSSScore(sev.Score)
-			if score >= 9.0 {
-				return types.SeverityCritical
-			} else if score >= 7.0 {
-				return types.SeverityHigh
-			} else if score >= 4.0 {
-				return types.SeverityMedium
-			}
-			return types.SeverityLow
-		}
+	if s := normalizeSeverityString(vuln.DatabaseSpecific.Severity); s != "" {
+		return s
 	}
 
-	// Check database-specific severity
 	for _, sev := range vuln.Severity {
 		switch sev.Type {
-		case "ECOSYSTEM":
-			// Some ecosystems provide severity directly
-			switch sev.Score {
-			case "CRITICAL":
-				return types.SeverityCritical
-			case "HIGH":
-				return types.SeverityHigh
-			case "MODERATE", "MEDIUM":
-				return types.SeverityMedium
-			case "LOW":
-				return types.SeverityLow
+		case "CVSS_V3", "CVSS_V4":
+			if score, ok := cvssScore(sev.Score); ok {
+				return severityFromCVSS(score)
 			}
 		}
 	}
 
-	// Check database ID prefix as fallback
-	if len(vuln.ID) >= 4 && vuln.ID[:4] == "GHSA" {
-		// GitHub Security Advisories usually have severity in details
-		return types.SeverityMedium // Default for unknown GHSA
+	for _, sev := range vuln.Severity {
+		if sev.Type == "ECOSYSTEM" {
+			if s := normalizeSeverityString(sev.Score); s != "" {
+				return s
+			}
+		}
 	}
 
 	return types.SeverityMedium
+}
+
+func severityFromCVSS(score float64) types.Severity {
+	switch {
+	case score >= 9.0:
+		return types.SeverityCritical
+	case score >= 7.0:
+		return types.SeverityHigh
+	case score >= 4.0:
+		return types.SeverityMedium
+	case score > 0:
+		return types.SeverityLow
+	default:
+		// 0.0 base score still represents a tracked finding; report it as
+		// the lowest non-zero bucket rather than dropping it.
+		return types.SeverityLow
+	}
+}
+
+func normalizeSeverityString(s string) types.Severity {
+	switch strings.ToUpper(strings.TrimSpace(s)) {
+	case "CRITICAL":
+		return types.SeverityCritical
+	case "HIGH":
+		return types.SeverityHigh
+	case "MODERATE", "MEDIUM":
+		return types.SeverityMedium
+	case "LOW":
+		return types.SeverityLow
+	}
+	return ""
 }
 
 func (c *Client) extractReferences(refs []reference) []string {
@@ -208,55 +229,6 @@ func (c *Client) extractReferences(refs []reference) []string {
 		}
 	}
 	return urls
-}
-
-func parseCVSSScore(vector string) float64 {
-	// Simple extraction of base score from CVSS vector
-	// Format: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H
-	// We'd need to calculate, but for simplicity, let's estimate from vector
-	// A proper implementation would parse and calculate
-
-	// Count high-impact indicators
-	highCount := 0
-	if contains(vector, "/C:H") {
-		highCount++
-	}
-	if contains(vector, "/I:H") {
-		highCount++
-	}
-	if contains(vector, "/A:H") {
-		highCount++
-	}
-	if contains(vector, "/AV:N") {
-		highCount++
-	}
-	if contains(vector, "/PR:N") {
-		highCount++
-	}
-
-	switch {
-	case highCount >= 4:
-		return 9.0
-	case highCount >= 3:
-		return 7.5
-	case highCount >= 2:
-		return 5.0
-	default:
-		return 3.0
-	}
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) && (s[:len(substr)] == substr || s[len(s)-len(substr):] == substr || containsMiddle(s, substr)))
-}
-
-func containsMiddle(s, substr string) bool {
-	for i := 1; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
 }
 
 func truncate(s string, maxLen int) string {
@@ -291,12 +263,19 @@ type queryResult struct {
 }
 
 type vulnerability struct {
-	ID         string      `json:"id"`
-	Summary    string      `json:"summary"`
-	Details    string      `json:"details"`
-	Severity   []severity  `json:"severity,omitempty"`
-	References []reference `json:"references,omitempty"`
-	Affected   []affected  `json:"affected,omitempty"`
+	ID               string           `json:"id"`
+	Summary          string           `json:"summary"`
+	Details          string           `json:"details"`
+	Severity         []severity       `json:"severity,omitempty"`
+	References       []reference      `json:"references,omitempty"`
+	Affected         []affected       `json:"affected,omitempty"`
+	DatabaseSpecific databaseSpecific `json:"database_specific,omitempty"`
+}
+
+// databaseSpecific carries fields the OSV record source attached. For npm
+// GHSA records, severity is consistently populated.
+type databaseSpecific struct {
+	Severity string `json:"severity,omitempty"`
 }
 
 type severity struct {
