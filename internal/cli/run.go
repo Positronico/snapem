@@ -62,7 +62,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 
 	// Initialize UI
-	display := ui.New(cfg.UI.Verbose, cfg.UI.Quiet, cfg.UI.Color && !noColor)
+	display := ui.New(cfg.UI.Verbose, cfg.UI.Quiet, useColor(cfg.UI.Color, noColor))
 
 	// Get current directory
 	projectDir, err := os.Getwd()
