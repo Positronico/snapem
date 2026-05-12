@@ -198,7 +198,7 @@ func evaluateScanResults(cfg *config.Config, display *ui.UI, result *scanner.Agg
 		display.Print("")
 		display.Error("Malware/Supply Chain Threats:")
 		for _, f := range malwareFindings {
-			display.ThreatFound(string(f.Severity), f.Package+"@"+f.Version, f.Description)
+			display.ThreatFound(string(f.Severity), f.Package+"@"+f.Version, f.Description, f.Remediation)
 		}
 	}
 
@@ -214,7 +214,7 @@ func evaluateScanResults(cfg *config.Config, display *ui.UI, result *scanner.Agg
 		} {
 			for _, f := range cveFindings {
 				if f.Severity == sev {
-					display.ThreatFound(string(sev), f.Package+"@"+f.Version, f.Title)
+					display.ThreatFound(string(sev), f.Package+"@"+f.Version, f.Title, f.Remediation)
 				}
 			}
 		}

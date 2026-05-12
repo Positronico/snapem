@@ -211,7 +211,7 @@ func outputTextResult(cfg *config.Config, display *ui.UI, result *scanner.Aggreg
 		display.Print("")
 		display.Error("Malware/Supply Chain Threats:")
 		for _, f := range malwareFindings {
-			display.ThreatFound(string(f.Severity), f.Package+"@"+f.Version, f.Description)
+			display.ThreatFound(string(f.Severity), f.Package+"@"+f.Version, f.Description, f.Remediation)
 		}
 	}
 
@@ -235,7 +235,7 @@ func outputTextResult(cfg *config.Config, display *ui.UI, result *scanner.Aggreg
 					if f.ID != "" {
 						desc = f.ID + ": " + f.Title
 					}
-					display.ThreatFound(string(sev), f.Package+"@"+f.Version, desc)
+					display.ThreatFound(string(sev), f.Package+"@"+f.Version, desc, f.Remediation)
 				}
 			}
 		}
