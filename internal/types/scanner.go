@@ -23,7 +23,14 @@ type Finding struct {
 	Description string      `json:"description"`
 	ID          string      `json:"id,omitempty"`
 	References  []string    `json:"references,omitempty"`
-	Remediation string      `json:"remediation,omitempty"`
+	// Remediation is the human-readable fix line, e.g. "Fixed in 4.17.21".
+	// Empty when no patched release exists yet.
+	Remediation string `json:"remediation,omitempty"`
+	// FixedVersions is the structured form of Remediation: each entry is
+	// a patched version. Empty when no fix is published. Used by
+	// `snapem upgrade` to pick a target version; the human Remediation
+	// string is what gets rendered to users.
+	FixedVersions []string `json:"fixed_versions,omitempty"`
 }
 
 // FindingType categorizes the type of security issue

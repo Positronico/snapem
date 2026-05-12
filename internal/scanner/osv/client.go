@@ -204,16 +204,18 @@ func (c *Client) convertToFindings(packages []manifest.Package, resp *batchRespo
 				}
 			}
 
+			fixedVersions, remediation := remediationFor(merged, pkg.Name)
 			finding := types.Finding{
-				Package:     pkg.Name,
-				Version:     pkg.Version,
-				Type:        types.FindingTypeCVE,
-				Severity:    c.mapSeverity(merged),
-				Title:       merged.Summary,
-				Description: truncate(merged.Details, 500),
-				ID:          merged.ID,
-				References:  c.extractReferences(merged.References),
-				Remediation: remediationFor(merged, pkg.Name),
+				Package:       pkg.Name,
+				Version:       pkg.Version,
+				Type:          types.FindingTypeCVE,
+				Severity:      c.mapSeverity(merged),
+				Title:         merged.Summary,
+				Description:   truncate(merged.Details, 500),
+				ID:            merged.ID,
+				References:    c.extractReferences(merged.References),
+				Remediation:   remediation,
+				FixedVersions: fixedVersions,
 			}
 			findings = append(findings, finding)
 		}
