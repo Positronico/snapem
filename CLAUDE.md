@@ -34,6 +34,14 @@ You do **not** have permission to:
 
 When you hit one of those, **stop and ask** — do not invent a workaround.
 
+You **do** have standing authorization for:
+
+- Small workflow / tooling improvements (CI version bumps, lint config, makefile tweaks, README/CLAUDE.md edits). Open a PR and merge it yourself when reviewed CI passes; cutting a release is a separate step that still needs explicit user approval.
+- Bug fixes with tests that capture the regression, following section 5's loop.
+- New tests that lock down existing behavior.
+
+The PR-then-merge cadence still applies — direct pushes to `main` are blocked by the harness — but you don't need to wait for the user to greenlight each small change.
+
 ## 3. Repository map
 
 ```
@@ -152,9 +160,15 @@ Only when the user asks. Process is in [WORKFLOW.md](WORKFLOW.md). Summary:
 1. `git tag vX.Y.Z && git push origin vX.Y.Z`
 2. Wait for `.github/workflows/release.yml` (it runs goreleaser, builds darwin/{arm64,amd64} tarballs, publishes a GitHub release).
 3. `./scripts/update-formula.sh vX.Y.Z` (pushes formula to `Positronico/homebrew-tap`).
-4. Verify with `brew untap Positronico/tap; brew tap Positronico/tap; brew install snapem; snapem version`.
+4. Verify with `brew update && brew upgrade snapem && snapem version`. (Don't `brew untap` — refuses if the formula is installed.)
 
 The `brews:` block in `.goreleaser.yaml` is currently commented out and the tap is updated by the script in step 3. Either method is fine, but don't change one without the other.
+
+### Known wrinkles in the release flow
+
+- **`gh pr merge --rebase` desyncs your local main.** Server rewrites commit hashes; gh then tries a local pull that can't fast-forward, fails with `Not possible to fast-forward, aborting`, and aborts before deleting the remote branch. The merge itself succeeded server-side. Recovery: confirm with `gh pr view N --json state`, then `git diff main origin/main` (must be empty), then `git reset --hard origin/main` and `git push origin --delete <branch>`.
+- **Goreleaser version pin.** The workflow pins `version: "~> v2"`. Before bumping that to `v3` when it ships, smoke-test locally with `goreleaser release --snapshot --clean` against the actual `.goreleaser.yaml`.
+- **Node 20 runners deprecated.** Action majors must be on Node 24 by 2026-09-16. `actions/checkout@v6`, `actions/setup-go@v6`, `goreleaser/goreleaser-action@v7` are the Node-24-capable lines as of 2026-05.
 
 ### Required secrets / config (already set up — do not touch)
 
