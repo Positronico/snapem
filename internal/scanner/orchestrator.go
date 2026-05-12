@@ -11,19 +11,20 @@ import (
 	"github.com/positronico/snapem/internal/scanner/socket"
 )
 
-// Orchestrator coordinates multiple security scanners
+// ProgressFunc is called when an individual scanner starts (done=false) and
+// finishes (done=true). It may be nil.
+type ProgressFunc func(scanner string, done bool)
+
+// Orchestrator coordinates multiple security scanners.
 type Orchestrator struct {
 	scanners []Scanner
 	config   *config.Config
 }
 
-// NewOrchestrator creates a new scanner orchestrator
+// NewOrchestrator creates a new scanner orchestrator.
 func NewOrchestrator(cfg *config.Config) *Orchestrator {
-	o := &Orchestrator{
-		config: cfg,
-	}
+	o := &Orchestrator{config: cfg}
 
-	// Add enabled scanners
 	if cfg.Scanning.Socket.Enabled {
 		o.scanners = append(o.scanners, socket.NewClient(cfg.Scanning.Socket))
 	}
@@ -34,8 +35,21 @@ func NewOrchestrator(cfg *config.Config) *Orchestrator {
 	return o
 }
 
-// Scan runs all configured scanners concurrently
+// Scan runs all configured scanners concurrently and applies policy
+// (allowlist/blocklist).
 func (o *Orchestrator) Scan(ctx context.Context, packages []manifest.Package) (*AggregatedResult, error) {
+	return o.scan(ctx, packages, nil)
+}
+
+// ScanWithProgress is identical to Scan but reports per-scanner progress via
+// the supplied callback. Both entry points share the same policy + aggregation
+// path; do not fork them again — the historic divergence caused the blocklist
+// to be silently ignored on install/scan (see CLAUDE.md §8.1).
+func (o *Orchestrator) ScanWithProgress(ctx context.Context, packages []manifest.Package, onProgress ProgressFunc) (*AggregatedResult, error) {
+	return o.scan(ctx, packages, onProgress)
+}
+
+func (o *Orchestrator) scan(ctx context.Context, packages []manifest.Package, onProgress ProgressFunc) (*AggregatedResult, error) {
 	start := time.Now()
 
 	if len(packages) == 0 {
@@ -47,111 +61,30 @@ func (o *Orchestrator) Scan(ctx context.Context, packages []manifest.Package) (*
 		}, nil
 	}
 
-	// Filter out allowlisted packages
 	filteredPackages := o.filterAllowlisted(packages)
 
-	// Run scanners concurrently
-	var wg sync.WaitGroup
-	resultsChan := make(chan *ScanResult, len(o.scanners))
-	errChan := make(chan error, len(o.scanners))
+	results, firstErr := o.runScanners(ctx, filteredPackages, onProgress)
 
-	for _, s := range o.scanners {
-		if !s.IsAvailable() {
-			continue
-		}
-		wg.Add(1)
-		go func(scanner Scanner) {
-			defer wg.Done()
-			result, err := scanner.Scan(ctx, filteredPackages)
-			if err != nil {
-				errChan <- err
-				return
-			}
-			resultsChan <- result
-		}(s)
-	}
-
-	// Wait for all scanners to complete
-	go func() {
-		wg.Wait()
-		close(resultsChan)
-		close(errChan)
-	}()
-
-	// Collect results
-	var results []*ScanResult
-	var firstErr error
-
-	for {
-		select {
-		case result, ok := <-resultsChan:
-			if !ok {
-				resultsChan = nil
-			} else {
-				results = append(results, result)
-			}
-		case err, ok := <-errChan:
-			if !ok {
-				errChan = nil
-			} else if firstErr == nil {
-				firstErr = err
-			}
-		}
-
-		if resultsChan == nil && errChan == nil {
-			break
-		}
-	}
-
-	// If all scanners failed, return error
-	if len(results) == 0 && firstErr != nil {
+	// If every scanner failed AND we have no policy-derived findings to
+	// report, surface the error so the caller can decide what to do.
+	if len(results) == 0 && firstErr != nil && !o.hasBlocklistHit(packages) {
 		return nil, firstErr
 	}
 
-	// Aggregate results
 	aggregated := o.aggregate(results)
 	aggregated.TotalPackages = len(filteredPackages)
 	aggregated.Duration = time.Since(start)
 
-	// Filter out blocklisted packages (add findings for them)
-	for _, pkg := range packages {
-		if o.config.IsPackageBlocklisted(pkg.Name) {
-			aggregated.Results = append(aggregated.Results, &ScanResult{
-				Scanner:  "policy",
-				Packages: 1,
-				Findings: []Finding{
-					{
-						Package:     pkg.Name,
-						Version:     pkg.Version,
-						Type:        FindingTypeMalware,
-						Severity:    SeverityCritical,
-						Title:       "Blocklisted package",
-						Description: "This package is in your blocklist",
-					},
-				},
-			})
-			aggregated.HasMalware = true
-			aggregated.TotalFindings++
-		}
-	}
-
+	o.applyBlocklist(packages, aggregated)
 	return aggregated, nil
 }
 
-// ScanWithProgress runs scanners and reports progress via callback
-func (o *Orchestrator) ScanWithProgress(ctx context.Context, packages []manifest.Package, onProgress func(scanner string, done bool)) (*AggregatedResult, error) {
-	start := time.Now()
-
-	if len(packages) == 0 {
-		return &AggregatedResult{
-			Results:       []*ScanResult{},
-			TotalPackages: 0,
-			TotalFindings: 0,
-			Duration:      time.Since(start),
-		}, nil
+// runScanners fans the package list out to every available scanner
+// concurrently and returns the collected results plus the first error (if any).
+func (o *Orchestrator) runScanners(ctx context.Context, packages []manifest.Package, onProgress ProgressFunc) ([]*ScanResult, error) {
+	if len(o.scanners) == 0 {
+		return nil, nil
 	}
-
-	filteredPackages := o.filterAllowlisted(packages)
 
 	var wg sync.WaitGroup
 	resultsChan := make(chan *ScanResult, len(o.scanners))
@@ -167,7 +100,7 @@ func (o *Orchestrator) ScanWithProgress(ctx context.Context, packages []manifest
 			if onProgress != nil {
 				onProgress(scanner.Name(), false)
 			}
-			result, err := scanner.Scan(ctx, filteredPackages)
+			result, err := scanner.Scan(ctx, packages)
 			if onProgress != nil {
 				onProgress(scanner.Name(), true)
 			}
@@ -187,7 +120,6 @@ func (o *Orchestrator) ScanWithProgress(ctx context.Context, packages []manifest
 
 	var results []*ScanResult
 	var firstErr error
-
 	for {
 		select {
 		case result, ok := <-resultsChan:
@@ -203,25 +135,19 @@ func (o *Orchestrator) ScanWithProgress(ctx context.Context, packages []manifest
 				firstErr = err
 			}
 		}
-
 		if resultsChan == nil && errChan == nil {
 			break
 		}
 	}
 
-	if len(results) == 0 && firstErr != nil {
-		return nil, firstErr
-	}
-
-	aggregated := o.aggregate(results)
-	aggregated.TotalPackages = len(filteredPackages)
-	aggregated.Duration = time.Since(start)
-
-	return aggregated, nil
+	return results, firstErr
 }
 
 func (o *Orchestrator) filterAllowlisted(packages []manifest.Package) []manifest.Package {
-	var filtered []manifest.Package
+	if len(o.config.Scanning.Policy.Allowlist) == 0 {
+		return packages
+	}
+	filtered := make([]manifest.Package, 0, len(packages))
 	for _, pkg := range packages {
 		if !o.config.IsPackageAllowlisted(pkg.Name) {
 			filtered = append(filtered, pkg)
@@ -230,10 +156,51 @@ func (o *Orchestrator) filterAllowlisted(packages []manifest.Package) []manifest
 	return filtered
 }
 
-func (o *Orchestrator) aggregate(results []*ScanResult) *AggregatedResult {
-	aggregated := &AggregatedResult{
-		Results: results,
+// applyBlocklist appends a critical malware finding for every package in the
+// original (unfiltered) list that the user blocklisted. Blocklist intentionally
+// trumps allowlist.
+func (o *Orchestrator) applyBlocklist(packages []manifest.Package, aggregated *AggregatedResult) {
+	if len(o.config.Scanning.Policy.Blocklist) == 0 {
+		return
 	}
+	for _, pkg := range packages {
+		if !o.config.IsPackageBlocklisted(pkg.Name) {
+			continue
+		}
+		aggregated.Results = append(aggregated.Results, &ScanResult{
+			Scanner:  "policy",
+			Packages: 1,
+			Findings: []Finding{
+				{
+					Package:     pkg.Name,
+					Version:     pkg.Version,
+					Type:        FindingTypeMalware,
+					Severity:    SeverityCritical,
+					Title:       "Blocklisted package",
+					Description: "This package is in your blocklist",
+				},
+			},
+		})
+		aggregated.HasMalware = true
+		aggregated.HasCritical = true
+		aggregated.TotalFindings++
+	}
+}
+
+func (o *Orchestrator) hasBlocklistHit(packages []manifest.Package) bool {
+	if len(o.config.Scanning.Policy.Blocklist) == 0 {
+		return false
+	}
+	for _, pkg := range packages {
+		if o.config.IsPackageBlocklisted(pkg.Name) {
+			return true
+		}
+	}
+	return false
+}
+
+func (o *Orchestrator) aggregate(results []*ScanResult) *AggregatedResult {
+	aggregated := &AggregatedResult{Results: results}
 
 	for _, result := range results {
 		for _, finding := range result.Findings {
@@ -255,7 +222,7 @@ func (o *Orchestrator) aggregate(results []*ScanResult) *AggregatedResult {
 	return aggregated
 }
 
-// HasSocketScanner returns true if Socket scanner is enabled
+// HasSocketScanner returns true if Socket scanner is enabled and reachable.
 func (o *Orchestrator) HasSocketScanner() bool {
 	for _, s := range o.scanners {
 		if s.Name() == "Socket.dev" && s.IsAvailable() {
@@ -265,7 +232,7 @@ func (o *Orchestrator) HasSocketScanner() bool {
 	return false
 }
 
-// AvailableScanners returns names of available scanners
+// AvailableScanners returns names of scanners that report IsAvailable().
 func (o *Orchestrator) AvailableScanners() []string {
 	var names []string
 	for _, s := range o.scanners {
