@@ -100,6 +100,59 @@ func (s *FileStore) Get(scanner, ecosystem, name, version string, maxAge time.Du
 	return &e, nil
 }
 
+// Stats reports the number of cache entries and total bytes used by them.
+// Stale-on-disk files that don't parse are still counted.
+type Stats struct {
+	Entries int
+	Bytes   int64
+}
+
+// Stat walks the cache directory and returns aggregate counts.
+func (s *FileStore) Stat() (Stats, error) {
+	var out Stats
+	entries, err := os.ReadDir(s.Dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return out, nil
+		}
+		return out, err
+	}
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
+			continue
+		}
+		info, err := e.Info()
+		if err != nil {
+			continue
+		}
+		out.Entries++
+		out.Bytes += info.Size()
+	}
+	return out, nil
+}
+
+// Clear deletes every cache entry under the store directory. The directory
+// itself is left in place so subsequent Put calls don't need to recreate it.
+func (s *FileStore) Clear() (int, error) {
+	entries, err := os.ReadDir(s.Dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	deleted := 0
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
+			continue
+		}
+		if err := os.Remove(filepath.Join(s.Dir, e.Name())); err == nil {
+			deleted++
+		}
+	}
+	return deleted, nil
+}
+
 // Put implements Store via atomic temp-file + rename.
 func (s *FileStore) Put(entry *Entry) error {
 	if entry == nil {
