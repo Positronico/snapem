@@ -14,6 +14,7 @@ snapem is a security-enhanced wrapper for Node.js package managers (npm, bun, pn
 | `npx <cmd>`                                 | `snapem exec -- npx <cmd>`                  |
 | `node <file>`                               | `snapem exec -- node <file>`                |
 | `npm audit`                                 | `snapem scan`                               |
+| `npm audit fix`                             | `snapem upgrade` (see below — also handles SOCKET findings, not just npm's data) |
 
 The `--` separator is important: anything after `--` goes to the inner command, anything before is a snapem flag. `snapem exec node --version` will try to parse `--version` as a snapem flag; `snapem exec -- node --version` does what the user expected.
 
@@ -36,9 +37,10 @@ Exit code 2. Output is grouped per package with one block per `name@version`:
 How to respond:
 
 - **Surface the findings to the user.** Don't summarize them away — the IDs, fix versions, and URLs are the actionable content.
-- **Suggest the fix version.** If the finding shows `Fixed in 4.17.21`, propose `snapem install lodash@4.17.21`. That's the right answer in almost every case.
+- **Suggest `snapem upgrade`.** This is the right answer for the common case (one or more direct deps have a fix available). It scans, proposes a per-package target version that resolves every finding for the package, and applies the upgrade through the container. Use `snapem upgrade --dry-run` first if you want to show the user the plan before applying.
+- For a single-package surgical fix, `snapem install <pkg>@<fixed-version>` also works (e.g. `snapem install lodash@4.17.21` after reading "Fixed in 4.17.21").
 - **Never pass `--force` or `--skip-scan` unsolicited.** Both are security bypasses. Use them only when the user has explicitly said "ignore this", and even then, name the threat back to them so they're making an informed choice.
-- **Transitive dependencies.** If the vulnerable package isn't in the user's `package.json` directly, they typically can't just upgrade it. Suggest upgrading the parent package, running `npm dedupe`, or — if no fix exists yet — pinning a `resolutions` override.
+- **Transitive dependencies.** `snapem upgrade` will report transitive findings but not fix them automatically — the user has to upgrade the parent package, run `npm dedupe`, or pin via npm `overrides` / pnpm `resolutions`. Don't try to install a transitive directly; that creates a phantom direct dep.
 
 ## Flags worth knowing
 

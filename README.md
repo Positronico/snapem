@@ -194,6 +194,19 @@ snapem exec -- sh -c "ls -la"
 
 > **Important:** Use `--` before your command to separate snapem flags from command arguments.
 
+### `snapem upgrade` — Apply Remediations Automatically
+
+Scans, proposes a per-package version bump that resolves every finding for that package, and applies it through the container after confirmation.
+
+```bash
+snapem upgrade              # propose + confirm + apply
+snapem upgrade --dry-run    # propose + exit
+snapem upgrade --yes        # apply without prompting
+snapem upgrade --major      # allow major-version bumps when no in-major fix exists
+```
+
+By default, upgrades stay within the package's current major version. Transitive dependencies (not in `package.json` directly) are reported but not auto-fixed — upgrade the parent dependency, run `npm dedupe`, or pin via npm `overrides` / pnpm `resolutions`.
+
 ### `snapem scan` — Security Scan Only
 
 Scan without installing — useful for auditing existing projects.
