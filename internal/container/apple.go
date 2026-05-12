@@ -121,17 +121,15 @@ func (r *AppleRuntime) buildArgs(opts *RunOptions) []string {
 	// Network mode.
 	//
 	// container v0.9.0 takes --network <name> (a network *name*, NOT a
-	// docker-style mode). The default network is "default" and is created
-	// automatically when the container service starts. There is no
+	// Docker-style mode). The default network is created automatically
+	// as "default" when the container service starts. There is no
 	// equivalent of "--network host" — every container runs in its own
 	// vmnet namespace. We emit nothing for NetworkHost and rely on the
 	// default network attachment.
 	//
-	// "none" is not a documented network name. Passing --network none
-	// will fail if no network of that name exists, which is the desired
-	// behaviour for an explicit isolation request: the container won't
-	// start, so no network is exposed. If/when Apple ships a documented
-	// isolated network primitive we can switch to it here.
+	// "none" is a recognized name that disables outbound network. Live
+	// verified: DNS resolution inside a `--network none` container
+	// returns EAI_AGAIN, so registry installs fail closed.
 	switch opts.Network {
 	case NetworkNone:
 		args = append(args, "--network", "none")

@@ -10,8 +10,7 @@ Items are ordered by priority within each tier. Anything in **Out of scope** has
 
 These are things we *claim* the product does but haven't fully proven, or where the current behavior could surprise a user in a security-relevant way.
 
-- [ ] **End-to-end test against Apple `container` runtime.** Build-tag gated (`//go:build container_e2e`) so it doesn't run in CI unless the service is up. Boots a container, mounts a real fixture project, runs `npm install`, asserts the install succeeded and the container was removed.
-- [ ] **macOS code signing / notarization.** First-time users hit a Gatekeeper warning on the unsigned binary. Need a signing certificate (Apple Developer account, owner action) before this can be automated. **Blocked on user.**
+- [ ] **Automated E2E test against Apple `container` runtime.** Build-tag gated (`//go:build container_e2e`) so it doesn't run in CI unless the service is up. Boots a container, mounts a real fixture project, runs `npm install`, asserts the install succeeded and the container was removed. Manual smoke pass was completed during v0.3.0 prep (install, run-script, exec, `--no-network` isolation all verified live); this item tracks turning that into a repeatable script.
 - [ ] **`snapem doctor` subcommand.** Inspects the runtime: `container system status`, presence of `SOCKET_API_TOKEN`, cache directory writable, network reachability of OSV and Socket. Prints a checklist so new users diagnose their own setup.
 - [ ] **Read-only project mount option.** `snapem exec` and `snapem run` currently mount the project read-write. A `--read-only` flag (or `container.readonly: true` in config) would let users opt into a stronger isolation posture for scripts that shouldn't write back. Volume option goes from `path:/app` to `path:/app:ro`.
 
@@ -27,6 +26,7 @@ These are things we *claim* the product does but haven't fully proven, or where 
 ## P3 — polish and internal quality
 
 - [ ] **Progress indicators.** Spinner during OSV/Socket fan-out. Cache hits make most scans fast now, but a 1500-dep cold scan still takes a few seconds.
+- [ ] **macOS code signing / notarization.** Not blocking for the brew-first install path: Homebrew downloads via `curl` from a shell, so the bottle binary doesn't get the `com.apple.quarantine` xattr and runs without a Gatekeeper prompt. Becomes important if users download tarballs directly from the GitHub releases page in a browser, if we ship a `.pkg` installer, or if a corporate macOS fleet enforces "signed binaries only". Needs an Apple Developer account + signing cert (owner action) before this can be automated. **Blocked on user when prioritized.**
 - [ ] **Godoc on exported APIs.** `internal/scanner.Scanner`, `internal/scanner/cache.Store`, `internal/manifest.Parser` are the highest-value ones.
 - [ ] **Structured logging (slog).** Replace ad-hoc `fmt.Fprintln(os.Stderr, ...)` calls with `slog`. Lets verbose mode produce machine-parseable output.
 - [ ] **Context cancellation audit.** Ctrl+C should propagate cleanly through every blocking operation. Most paths use `ctx` already; we haven't formally verified every fan-out goroutine respects cancel.
@@ -60,12 +60,12 @@ These came up during analysis but aren't going to ship. Open an issue if you dis
 
 ## Notes on E2E coverage
 
-What's verified live against real APIs:
+What's verified live against real APIs and runtime:
 - ✅ OSV `/v1/querybatch` + `/v1/vulns/{id}` enrichment against real CVEs (lodash, minimist, axios fixtures).
 - ✅ Socket.dev `/v0/purl` with a real token (any account with `SOCKET_API_TOKEN` env set).
-- ✅ Cache miss → hit timing (live differential demonstrated).
+- ✅ Cache miss → hit timing (10× differential demonstrated on a 4-package project).
 - ✅ Grouped output with advisory URLs against multi-package vulnerable fixtures.
+- ✅ Apple `container` runtime against CLI v0.9.0: `snapem exec` (basic command), `snapem install` (full npm install path, host-owned files via bind mount), `snapem run <script>` (Ctrl+C-safe via trap wrapper), `snapem install` blocking on critical CVE before container starts, `--no-network` returning EAI_AGAIN for outbound DNS.
 
 What's pinned by unit tests but not exercised against the live runtime:
-- Apple `container` CLI argument generation (golden test only — needs the P1 E2E item to actually boot a container).
 - bun and pnpm install command shape (parsers tested against fixtures; the actual `corepack pnpm install` and `bun install` round-trips have not been driven from a session with those tools installed).

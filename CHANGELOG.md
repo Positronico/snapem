@@ -30,6 +30,7 @@ All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 ### Testing
 - 7 packages covered (up from 1). Network-using code uses `httptest` mocks; no test hits live APIs.
 - Apple `container` CLI argument generation pinned with a golden test so a flag rename surfaces as a deterministic failure.
+- Live runtime smoke against `container` CLI v0.9.0 covering: `exec`, `install` (host-owned bind-mount writes), `run <script>`, pre-install threat blocking, and `--no-network` egress isolation (verified by EAI_AGAIN on outbound DNS).
 
 ## v0.1.2 — 2025-12-19
 
