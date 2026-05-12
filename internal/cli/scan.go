@@ -210,41 +210,9 @@ func outputTextResult(cfg *config.Config, display *ui.UI, result *scanner.Aggreg
 		display.Verbose(fmt.Sprintf("  Low: %d", low))
 	}
 
-	// Display malware findings
-	malwareFindings := result.MalwareFindings()
-	if len(malwareFindings) > 0 {
-		display.Print("")
-		display.Error("Malware/Supply Chain Threats:")
-		for _, f := range malwareFindings {
-			display.ThreatFound(string(f.Severity), f.Package+"@"+f.Version, f.Description, f.Remediation)
-		}
-	}
-
-	// Display CVE findings by severity
-	cveFindings := result.CVEFindings()
-	if len(cveFindings) > 0 {
-		display.Print("")
-		display.Warning("Vulnerabilities (CVEs):")
-
-		severities := []scanner.Severity{
-			scanner.SeverityCritical,
-			scanner.SeverityHigh,
-			scanner.SeverityMedium,
-			scanner.SeverityLow,
-		}
-
-		for _, sev := range severities {
-			for _, f := range cveFindings {
-				if f.Severity == sev {
-					desc := f.Title
-					if f.ID != "" {
-						desc = f.ID + ": " + f.Title
-					}
-					display.ThreatFound(string(sev), f.Package+"@"+f.Version, desc, f.Remediation)
-				}
-			}
-		}
-	}
+	// Render all findings grouped by package@version. The malware /
+	// CVE distinction is implicit in the per-finding severity styling.
+	renderFindingsGrouped(display, result.AllFindings())
 
 	// Block based on the full policy table, not just malware + critical.
 	if decision := scanner.EvaluatePolicy(cfg, result); decision.ShouldBlock {
