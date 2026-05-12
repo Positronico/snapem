@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"time"
 
@@ -93,7 +94,42 @@ func Load() (*Config, error) {
 		cfg.Scanning.Cache.Directory = cacheDir + "/snapem"
 	}
 
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+
 	return cfg, nil
+}
+
+func (c *Config) validate() error {
+	if err := requireOneOf("package_manager.preferred",
+		c.PackageManager.Preferred, "auto", "npm", "bun"); err != nil {
+		return err
+	}
+	if err := requireOneOf("container.network",
+		c.Container.Network, "host", "none", "bridge"); err != nil {
+		return err
+	}
+	if err := requireOneOf("scanning.policy.malware",
+		c.Scanning.Policy.Malware, "block", "warn", "ignore"); err != nil {
+		return err
+	}
+	for sev, action := range c.Scanning.Policy.CVE {
+		if err := requireOneOf("scanning.policy.cve."+sev,
+			action, "block", "warn", "ignore"); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func requireOneOf(key, value string, allowed ...string) error {
+	for _, a := range allowed {
+		if value == a {
+			return nil
+		}
+	}
+	return fmt.Errorf("config: %s=%q is not one of %v", key, value, allowed)
 }
 
 // HasSocketToken returns true if Socket API token is configured
