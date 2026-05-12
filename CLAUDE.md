@@ -68,11 +68,11 @@ There is no `pkg/` — keep public surface area inside `internal/` unless there'
 
 The README and the code originally assumed Docker-like semantics. They are **not** the same. As of `container` v0.9.0:
 
-- `-v, --volume` exists as a shorthand for `--mount`. Format: `host:container[:ro]` works in practice.
-- `--network <name>` takes a **named network**, not a mode. There is no `--network host`. Containers have network by default. To disable network, the supported way is `--no-dns` plus relying on absence of a network attachment — verify with `container run --help` on the user's machine before assuming.
+- `-v, --volume` exists as a shorthand for `--mount`. Format: `host:container[:ro]` works in practice (verified live: a `/tmp/proj:/app` mount round-trips through `npm install` and writes a host-owned lockfile).
+- `--network <name>` takes a **named network**. The default network is created automatically as `default` (192.168.64.0/24). There is no Docker-style `--network host`. **`--network none` IS accepted** and effectively disables outbound network — verified by `EAI_AGAIN` on DNS resolution from inside the container. This was unverified through v0.2.0; resolved during v0.3.0 prep against `container` CLI v0.9.0.
 - `--rm`, `-i`, `-t`, `-w`, `-p`, `-e`, `--env-file`, `--name`, `--workdir` all work.
 - `--publish` format: `[host-ip:]host-port:container-port[/protocol]`.
-- The container service must be running: `container system start`. Status: `container system status`.
+- The container service must be running: `container system start`. Status: `container system status`. First start may prompt for kernel install; that prompt is interactive and **can't be approved by Claude** — surface it to the user.
 
 When you change container-related code, run `container --help` and `container run --help` on this dev machine and quote the output back into the relevant comment so the next reader doesn't have to.
 
