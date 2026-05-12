@@ -151,6 +151,75 @@ func TestFileStore_SchemaMismatchTreatedAsMiss(t *testing.T) {
 	}
 }
 
+func TestFileStore_StatAndClear(t *testing.T) {
+	s := tempStore(t)
+
+	for i, name := range []string{"a", "b", "c"} {
+		entry := &Entry{
+			Scanner:   "x",
+			Ecosystem: "npm",
+			Package:   name,
+			Version:   "1.0.0",
+			Findings: []types.Finding{
+				{Package: name, Version: "1.0.0", ID: "id-" + name},
+			},
+		}
+		_ = i
+		if err := s.Put(entry); err != nil {
+			t.Fatalf("Put %s: %v", name, err)
+		}
+	}
+
+	stats, err := s.Stat()
+	if err != nil {
+		t.Fatalf("Stat: %v", err)
+	}
+	if stats.Entries != 3 {
+		t.Errorf("Stat.Entries=%d, want 3", stats.Entries)
+	}
+	if stats.Bytes <= 0 {
+		t.Errorf("Stat.Bytes=%d, want >0", stats.Bytes)
+	}
+
+	deleted, err := s.Clear()
+	if err != nil {
+		t.Fatalf("Clear: %v", err)
+	}
+	if deleted != 3 {
+		t.Errorf("Clear deleted=%d, want 3", deleted)
+	}
+
+	stats, _ = s.Stat()
+	if stats.Entries != 0 {
+		t.Errorf("after Clear, Stat.Entries=%d, want 0", stats.Entries)
+	}
+}
+
+// Stat and Clear on a never-created directory must not error.
+func TestFileStore_StatClearMissingDir(t *testing.T) {
+	// Build a FileStore whose Dir doesn't exist yet. NewFileStore creates
+	// it, so we instead construct one manually pointing at a nonexistent
+	// path inside the tempdir.
+	dir := filepath.Join(t.TempDir(), "missing")
+	s := &FileStore{Dir: dir}
+
+	stats, err := s.Stat()
+	if err != nil {
+		t.Errorf("Stat on missing dir: %v", err)
+	}
+	if stats.Entries != 0 {
+		t.Errorf("Stat.Entries=%d on missing dir, want 0", stats.Entries)
+	}
+
+	deleted, err := s.Clear()
+	if err != nil {
+		t.Errorf("Clear on missing dir: %v", err)
+	}
+	if deleted != 0 {
+		t.Errorf("Clear deleted=%d on missing dir, want 0", deleted)
+	}
+}
+
 func TestFileStore_KeyIsolation(t *testing.T) {
 	s := tempStore(t)
 
