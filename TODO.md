@@ -48,19 +48,18 @@
 ## High Priority
 
 ### Testing & Validation
-- [ ] **Automated tests**
-  - Mock HTTP responses for Socket.dev and OSV APIs
-  - Test concurrent scanning behavior
-  - Test policy enforcement logic
-  - Test cache functionality
-
-- [ ] **Unit tests**
-  - Manifest parser (package.json, package-lock.json)
-  - Configuration loading and validation
-  - Error handling and exit codes
-  - Package argument parsing (name@version)
+- [x] Mock HTTP responses for Socket.dev and OSV APIs (orchestrator, chunking, enrichment)
+- [x] Policy enforcement tests (each finding type × severity × policy action)
+- [x] Configuration validation tests
+- [x] CVSS parser tests (table-driven with real vectors)
+- [ ] Manifest parser fixtures for v1 lockfiles (existing tests cover v2 paths only)
+- [ ] Package argument parsing edge cases (`parsePackageArg`)
+- [ ] End-to-end test against `container` runtime (gated behind a build tag)
 
 ### Security Scanner
+- [x] **OSV finding enrichment** — fetch /v1/vulns/{id} after batch query so titles, severities, and references populate
+- [x] **Batch chunking + dedup** — respect OSV's 1000/req cap; Socket conservative 200/req; dedupe (name, version) across nested node_modules paths
+
 - [ ] **Scan result caching**
   - Implement file-based cache in `~/.cache/snapem/`
   - Cache key based on package name + version
@@ -70,6 +69,16 @@
 - [ ] **Rate limiting**
   - Handle Socket.dev rate limits gracefully
   - Exponential backoff for retries
+
+### Bugs fixed this iteration (kept here so they don't recur silently)
+- [x] Blocklist was silently ignored on install/scan (ScanWithProgress diverged from Scan)
+- [x] Defaults disagreed across viper SetDefault, the YAML template, and Load
+- [x] Fake CVSS parser replaced with a real v3 base-score implementation
+- [x] `snapem scan` did not apply the full policy table (only blocked on malware + critical CVE)
+- [x] `--no-color` flag was sign-inverted via viper binding
+- [x] `--package-manager pnpm` and `--include garbage` silently fell back to defaults
+- [x] NPM_TOKEN removed from default container environment passthrough
+- [x] Container CLI flag generation pinned with a golden test
 
 ## Medium Priority
 
