@@ -37,8 +37,17 @@ Examples:
   snapem run dev              # Run 'npm run dev' in a container
   snapem exec node index.js   # Execute a command in a container
   snapem scan                 # Run security scan without installing`,
-	SilenceUsage:  true,
-	SilenceErrors: true,
+	SilenceUsage:      true,
+	SilenceErrors:     true,
+	PersistentPreRunE: validateGlobalFlags,
+}
+
+// validateGlobalFlags rejects garbage values on global enum-like flags
+// before any subcommand runs. Previously --package-manager pnpm silently
+// fell back to npm; users would not learn pnpm was unsupported until they
+// looked at their lockfile and asked why nothing matched.
+func validateGlobalFlags(cmd *cobra.Command, args []string) error {
+	return validateEnum("package-manager", pkgMgr, []string{"", "auto", "npm", "bun"})
 }
 
 // Execute runs the root command
@@ -56,10 +65,13 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
 	rootCmd.PersistentFlags().StringVar(&pkgMgr, "package-manager", "", "force package manager (npm or bun)")
 
-	// Bind flags to viper
+	// Bind flags to viper. NOTE: we deliberately do NOT bind --no-color to
+	// any viper key. The two semantics are different — `ui.color` is a
+	// positive enable in config files, `--no-color` is a negative override
+	// on the CLI — and the old binding (ui.color = value-of-no-color) was
+	// sign-inverted. Commands compose them via useColor() in helpers.go.
 	viper.BindPFlag("ui.verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 	viper.BindPFlag("ui.quiet", rootCmd.PersistentFlags().Lookup("quiet"))
-	viper.BindPFlag("ui.color", rootCmd.PersistentFlags().Lookup("no-color"))
 	viper.BindPFlag("package_manager.preferred", rootCmd.PersistentFlags().Lookup("package-manager"))
 }
 
