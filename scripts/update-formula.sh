@@ -12,7 +12,7 @@ fi
 
 VERSION="${1#v}"  # Strip 'v' prefix if present
 REPO="Positronico/snapem"
-TAP_REPO="git@github.com:Positronico/homebrew-tap.git"
+TAP_REPO="https://github.com/Positronico/homebrew-tap.git"
 TAP_DIR="${HOME}/.homebrew-tap"
 FORMULA_NAME="snapem.rb"
 
@@ -48,6 +48,9 @@ echo ""
 echo "Updating homebrew-tap repository..."
 
 if [ -d "$TAP_DIR" ]; then
+  # Normalize remote URL in case the existing clone was set up over SSH.
+  # We standardize on HTTPS so gh's credential helper can authenticate.
+  git -C "$TAP_DIR" remote set-url origin "$TAP_REPO"
   echo "  Pulling latest changes..."
   git -C "$TAP_DIR" pull --quiet
 else
