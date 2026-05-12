@@ -73,15 +73,16 @@ scanning:
     # Action on malware detection: block, warn, ignore
     malware: block
 
-    # Action by CVE severity
+    # Action by CVE severity. NOTE: these must agree with the defaults in
+    # internal/config/defaults.go — there is a test asserting they do.
     cve:
       critical: block
-      high: warn
-      medium: warn
-      low: ignore
+      high: block
+      medium: block
+      low: warn
 
     # Allow user to override blocks with 'force'
-    allow_override: true
+    allow_override: false
 
     # Packages to skip scanning (trusted)
     allowlist: []
@@ -101,10 +102,13 @@ container:
   # Network mode: host, none
   network: host
 
-  # Environment variables to pass to container
+  # Environment variables to pass into the container. Snapem does NOT
+  # forward host environment by default — list each variable you want the
+  # container to see. NEVER add registry tokens (NPM_TOKEN, etc.) here
+  # unless you trust every package in your dependency tree, because a
+  # malicious install script can read this env.
   environment:
     - NODE_ENV
-    - NPM_TOKEN
 
 # UI settings
 ui:

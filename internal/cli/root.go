@@ -6,6 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/positronico/snapem/internal/config"
 )
 
 var (
@@ -89,33 +91,5 @@ func initConfig() {
 }
 
 func setDefaults() {
-	// Package manager defaults
-	viper.SetDefault("package_manager.preferred", "auto")
-
-	// Scanning defaults
-	viper.SetDefault("scanning.enabled", true)
-	viper.SetDefault("scanning.socket.enabled", true)
-	viper.SetDefault("scanning.socket.timeout", "30s")
-	viper.SetDefault("scanning.osv.enabled", true)
-	viper.SetDefault("scanning.osv.timeout", "30s")
-	viper.SetDefault("scanning.cache.enabled", true)
-	viper.SetDefault("scanning.cache.ttl", "24h")
-	viper.SetDefault("scanning.policy.malware", "block")
-	viper.SetDefault("scanning.policy.cve.critical", "block")
-	viper.SetDefault("scanning.policy.cve.high", "block")
-	viper.SetDefault("scanning.policy.cve.medium", "block")
-	viper.SetDefault("scanning.policy.cve.low", "warn")
-	viper.SetDefault("scanning.policy.allow_override", false)
-
-	// Container defaults
-	viper.SetDefault("container.enabled", true)
-	viper.SetDefault("container.image.npm", "node:lts-slim")
-	viper.SetDefault("container.image.bun", "oven/bun:latest")
-	viper.SetDefault("container.network", "host")
-
-	// UI defaults
-	viper.SetDefault("ui.color", true)
-	viper.SetDefault("ui.progress", true)
-	viper.SetDefault("ui.verbose", false)
-	viper.SetDefault("ui.quiet", false)
+	config.RegisterDefaults(viper.GetViper())
 }

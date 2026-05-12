@@ -73,42 +73,24 @@ type UIConfig struct {
 	Quiet   bool `mapstructure:"quiet"`
 }
 
-// Load loads configuration from viper
+// Load loads configuration from viper. Defaults must already have been
+// registered via RegisterDefaults.
 func Load() (*Config, error) {
 	cfg := &Config{}
-
-	// Unmarshal entire config
 	if err := viper.Unmarshal(cfg); err != nil {
 		return nil, err
 	}
 
-	// Handle Socket API token from environment
+	// SOCKET_API_TOKEN is intentionally not exposed as a viper key because
+	// users shouldn't put secrets in snapem.yaml. Read it from env only.
 	if cfg.Scanning.Socket.APIToken == "" {
 		cfg.Scanning.Socket.APIToken = os.Getenv("SOCKET_API_TOKEN")
 	}
 
-	// Set default cache directory
+	// Cache directory isn't a viper default because it's user-specific.
 	if cfg.Scanning.Cache.Directory == "" {
 		cacheDir, _ := os.UserCacheDir()
 		cfg.Scanning.Cache.Directory = cacheDir + "/snapem"
-	}
-
-	// Set default CVE policy if not set - block by default for security
-	if cfg.Scanning.Policy.CVE == nil {
-		cfg.Scanning.Policy.CVE = map[string]string{
-			"critical": "block",
-			"high":     "block",
-			"medium":   "block",
-			"low":      "warn",
-		}
-	}
-
-	// Set default images if not set
-	if cfg.Container.Image == nil {
-		cfg.Container.Image = map[string]string{
-			"npm": "node:lts-slim",
-			"bun": "oven/bun:latest",
-		}
 	}
 
 	return cfg, nil
