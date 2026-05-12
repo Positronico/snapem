@@ -103,7 +103,7 @@ func Load() (*Config, error) {
 
 func (c *Config) validate() error {
 	if err := requireOneOf("package_manager.preferred",
-		c.PackageManager.Preferred, "auto", "npm", "bun"); err != nil {
+		c.PackageManager.Preferred, "auto", "npm", "bun", "pnpm"); err != nil {
 		return err
 	}
 	if err := requireOneOf("container.network",
@@ -163,22 +163,73 @@ func (c *Config) GetCVEAction(severity string) string {
 	return "ignore"
 }
 
-// IsPackageAllowlisted returns true if the package is in the allowlist
-func (c *Config) IsPackageAllowlisted(name string) bool {
-	for _, pkg := range c.Scanning.Policy.Allowlist {
-		if pkg == name {
+// IsPackageAllowlisted reports whether (name, version) matches any entry
+// in policy.allowlist. Entries may be either "name" (any version) or
+// "name@version" (exact version). The version match is case-sensitive
+// because npm versions are.
+//
+// Historically this matched on name alone, which meant allowlisting one
+// vulnerable version of a package exempted every future version of it
+// forever — a real security regression. The new shape is backwards
+// compatible: existing "name" entries still allow all versions.
+func (c *Config) IsPackageAllowlisted(name, version string) bool {
+	return matchesPackageList(c.Scanning.Policy.Allowlist, name, version)
+}
+
+// IsPackageBlocklisted reports whether (name, version) matches any entry
+// in policy.blocklist. Semantics mirror IsPackageAllowlisted.
+func (c *Config) IsPackageBlocklisted(name, version string) bool {
+	return matchesPackageList(c.Scanning.Policy.Blocklist, name, version)
+}
+
+// matchesPackageList walks `entries` and returns true when one matches
+// the (name, version) tuple under the allowlist/blocklist rules:
+//
+//   - "lodash"           matches lodash at every version
+//   - "lodash@4.17.21"   matches lodash 4.17.21 exactly
+//   - "@scope/pkg@1"     matches @scope/pkg at version "1"
+//
+// Empty entries are skipped.
+func matchesPackageList(entries []string, name, version string) bool {
+	for _, entry := range entries {
+		entryName, entryVersion, hasVersion := splitListEntry(entry)
+		if entryName != name {
+			continue
+		}
+		if !hasVersion {
+			return true
+		}
+		if entryVersion == version {
 			return true
 		}
 	}
 	return false
 }
 
-// IsPackageBlocklisted returns true if the package is in the blocklist
-func (c *Config) IsPackageBlocklisted(name string) bool {
-	for _, pkg := range c.Scanning.Policy.Blocklist {
-		if pkg == name {
-			return true
+// splitListEntry parses "name", "name@version", or "@scope/pkg@version"
+// into its components. hasVersion=false means the entry omitted a version
+// and matches any.
+func splitListEntry(entry string) (name, version string, hasVersion bool) {
+	if entry == "" {
+		return "", "", false
+	}
+	// Mirror parsePackageArg's scoped-package handling: the leading '@'
+	// of a scope is not the version separator.
+	if entry[0] == '@' {
+		rest := entry[1:]
+		for i := len(rest) - 1; i >= 0; i-- {
+			if rest[i] == '@' {
+				idx := i + 1
+				return entry[:idx], entry[idx+1:], true
+			}
+		}
+		return entry, "", false
+	}
+	for i := len(entry) - 1; i >= 0; i-- {
+		if entry[i] == '@' {
+			return entry[:i], entry[i+1:], true
 		}
 	}
-	return false
+	return entry, "", false
 }
+

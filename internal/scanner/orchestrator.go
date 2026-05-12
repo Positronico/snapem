@@ -208,7 +208,7 @@ func (o *Orchestrator) filterAllowlisted(packages []manifest.Package) []manifest
 	}
 	filtered := make([]manifest.Package, 0, len(packages))
 	for _, pkg := range packages {
-		if !o.config.IsPackageAllowlisted(pkg.Name) {
+		if !o.config.IsPackageAllowlisted(pkg.Name, pkg.Version) {
 			filtered = append(filtered, pkg)
 		}
 	}
@@ -223,7 +223,7 @@ func (o *Orchestrator) applyBlocklist(packages []manifest.Package, aggregated *A
 		return
 	}
 	for _, pkg := range packages {
-		if !o.config.IsPackageBlocklisted(pkg.Name) {
+		if !o.config.IsPackageBlocklisted(pkg.Name, pkg.Version) {
 			continue
 		}
 		aggregated.Results = append(aggregated.Results, &ScanResult{
@@ -251,7 +251,7 @@ func (o *Orchestrator) hasBlocklistHit(packages []manifest.Package) bool {
 		return false
 	}
 	for _, pkg := range packages {
-		if o.config.IsPackageBlocklisted(pkg.Name) {
+		if o.config.IsPackageBlocklisted(pkg.Name, pkg.Version) {
 			return true
 		}
 	}
