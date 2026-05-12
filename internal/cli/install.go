@@ -193,9 +193,6 @@ func evaluateScanResults(cfg *config.Config, display *ui.UI, result *scanner.Agg
 
 	display.Print(fmt.Sprintf("\nFound %d issue(s):", result.TotalFindings))
 
-	var hasBlockingIssue bool
-
-	// Display malware findings
 	malwareFindings := result.MalwareFindings()
 	if len(malwareFindings) > 0 {
 		display.Print("")
@@ -203,48 +200,31 @@ func evaluateScanResults(cfg *config.Config, display *ui.UI, result *scanner.Agg
 		for _, f := range malwareFindings {
 			display.ThreatFound(string(f.Severity), f.Package+"@"+f.Version, f.Description)
 		}
-		if cfg.ShouldBlock(cfg.Scanning.Policy.Malware) {
-			hasBlockingIssue = true
-		}
 	}
 
-	// Display CVE findings by severity
 	cveFindings := result.CVEFindings()
 	if len(cveFindings) > 0 {
 		display.Print("")
 		display.Warning("Vulnerabilities (CVEs):")
-
-		// Group by severity
-		severities := []scanner.Severity{
+		for _, sev := range []scanner.Severity{
 			scanner.SeverityCritical,
 			scanner.SeverityHigh,
 			scanner.SeverityMedium,
 			scanner.SeverityLow,
-		}
-
-		for _, sev := range severities {
-			count := 0
+		} {
 			for _, f := range cveFindings {
 				if f.Severity == sev {
-					count++
 					display.ThreatFound(string(sev), f.Package+"@"+f.Version, f.Title)
-
-					// Check if this severity blocks
-					action := cfg.GetCVEAction(string(sev))
-					if cfg.ShouldBlock(action) {
-						hasBlockingIssue = true
-					}
 				}
 			}
 		}
 	}
 
-	if hasBlockingIssue {
+	if decision := scanner.EvaluatePolicy(cfg, result); decision.ShouldBlock {
 		display.Print("")
 		display.Error("Security scan blocked installation due to detected threats")
 		return errors.SecurityBlockError("security threats detected")
 	}
-
 	return nil
 }
 
