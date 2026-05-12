@@ -17,6 +17,10 @@ import (
 
 const (
 	baseURL = "https://api.socket.dev/v0"
+	// Socket's /v0/purl batch limits aren't publicly documented; this
+	// number is conservative enough to stay under typical request body
+	// caps on a 1500-dep monorepo while still chunking meaningfully.
+	maxBatchSize = 200
 )
 
 // Client handles Socket.dev API interactions
@@ -24,6 +28,8 @@ type Client struct {
 	httpClient *http.Client
 	apiToken   string
 	timeout    time.Duration
+	endpoint   string // overrideable in tests
+	batchSize  int    // overrideable in tests
 }
 
 // NewClient creates a new Socket.dev client
@@ -36,6 +42,8 @@ func NewClient(cfg config.SocketConfig) *Client {
 		httpClient: retryClient.StandardClient(),
 		apiToken:   cfg.APIToken,
 		timeout:    cfg.Timeout,
+		endpoint:   baseURL + "/purl",
+		batchSize:  maxBatchSize,
 	}
 }
 
@@ -71,25 +79,30 @@ func (c *Client) Scan(ctx context.Context, packages []manifest.Package) (*types.
 		}, nil
 	}
 
-	// Build batch request with PURLs
-	req := batchRequest{
-		Packages: make([]packageIdentifier, len(packages)),
+	batch := c.batchSize
+	if batch <= 0 {
+		batch = maxBatchSize
 	}
 
-	for i, pkg := range packages {
-		req.Packages[i] = packageIdentifier{
-			PURL: pkg.PURL(),
+	var findings []types.Finding
+	for offset := 0; offset < len(packages); offset += batch {
+		end := offset + batch
+		if end > len(packages) {
+			end = len(packages)
 		}
-	}
+		chunk := packages[offset:end]
 
-	// Execute request
-	resp, err := c.doBatchQuery(ctx, req)
-	if err != nil {
-		return nil, err
-	}
+		req := batchRequest{Packages: make([]packageIdentifier, len(chunk))}
+		for i, pkg := range chunk {
+			req.Packages[i] = packageIdentifier{PURL: pkg.PURL()}
+		}
 
-	// Convert to findings
-	findings := c.convertToFindings(resp)
+		resp, err := c.doBatchQuery(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		findings = append(findings, c.convertToFindings(resp)...)
+	}
 
 	return &types.ScanResult{
 		Scanner:      c.Name(),
@@ -108,7 +121,11 @@ func (c *Client) doBatchQuery(ctx context.Context, req batchRequest) (*batchResp
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", baseURL+"/purl", bytes.NewReader(body))
+	endpoint := c.endpoint
+	if endpoint == "" {
+		endpoint = baseURL + "/purl"
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

@@ -113,6 +113,30 @@ func TestScan_RespectsAllowlist(t *testing.T) {
 	}
 }
 
+func TestDedupePackages(t *testing.T) {
+	in := []manifest.Package{
+		{Name: "lodash", Version: "4.17.21", Ecosystem: "npm"},
+		{Name: "express", Version: "4.18.0", Ecosystem: "npm"},
+		{Name: "lodash", Version: "4.17.21", Ecosystem: "npm"}, // dup
+		{Name: "lodash", Version: "4.17.20", Ecosystem: "npm"}, // different version, keep
+		{Name: "express", Version: "4.18.0", Ecosystem: "npm"}, // dup
+	}
+	out := dedupePackages(in)
+	if len(out) != 3 {
+		t.Fatalf("got %d packages, want 3 (lodash@4.17.21, express@4.18.0, lodash@4.17.20)", len(out))
+	}
+	// Order preserved (first-seen).
+	if out[0].Name != "lodash" || out[0].Version != "4.17.21" {
+		t.Errorf("out[0]=%v, want lodash@4.17.21", out[0])
+	}
+	if out[1].Name != "express" {
+		t.Errorf("out[1]=%v, want express", out[1])
+	}
+	if out[2].Name != "lodash" || out[2].Version != "4.17.20" {
+		t.Errorf("out[2]=%v, want lodash@4.17.20", out[2])
+	}
+}
+
 func TestScan_EmptyPackagesNoCrash(t *testing.T) {
 	cfg := newTestConfig()
 	orch := NewOrchestrator(cfg)
