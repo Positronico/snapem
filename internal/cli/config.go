@@ -44,7 +44,7 @@ const defaultConfigTemplate = `# snapem Configuration
 
 # Package manager settings
 package_manager:
-  # Which package manager to use: auto, npm, bun
+  # Which package manager to use: auto, npm, bun, pnpm
   preferred: auto
 
 # Security scanning settings
@@ -84,10 +84,16 @@ scanning:
     # Allow user to override blocks with 'force'
     allow_override: false
 
-    # Packages to skip scanning (trusted)
+    # Packages to skip scanning (trusted). Entries can be:
+    #   - "lodash"           — every version of lodash is allowlisted
+    #   - "lodash@4.17.21"   — only this exact version
+    #   - "@types/node"      — works for scoped packages too
+    # Prefer pinning a version: a name-only allowlist exempts every
+    # future version of the package from scanning forever.
     allowlist: []
 
-    # Packages to always block
+    # Packages to always block. Same shape as allowlist; pinning a
+    # version blocks only that release.
     blocklist: []
 
 # Container settings
@@ -98,6 +104,7 @@ container:
   image:
     npm: node:lts-slim
     bun: oven/bun:latest
+    pnpm: node:lts-slim       # pnpm uses corepack inside the node image
 
   # Network mode: host, none
   network: host

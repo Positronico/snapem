@@ -229,14 +229,18 @@ scanning:
     # Can users bypass blocks with --force?
     allow_override: true
 
-    # Always trust these packages (skip scanning)
+    # Always trust these packages (skip scanning). Entries may be a bare
+    # name (every version is trusted — use with care) or "name@version"
+    # to pin a specific release that you've reviewed.
     allowlist:
-      - lodash
-      - express
+      - lodash@4.17.21        # only this exact version
+      - express               # every version (less safe)
+      - "@types/node@20.10.0"
 
     # Always block these packages
     blocklist:
       - malicious-package
+      - left-pad@1.3.0        # only this release
 ```
 
 ### When You Hit a Block
