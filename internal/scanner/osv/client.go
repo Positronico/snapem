@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-retryablehttp"
@@ -19,17 +20,22 @@ import (
 const (
 	baseURL  = "https://api.osv.dev/v1"
 	batchURL = baseURL + "/querybatch"
+	vulnsURL = baseURL + "/vulns/" // appended with the vuln ID
 	// OSV /v1/querybatch caps requests at 1000 queries. We chunk eagerly
 	// instead of letting the API reject oversized batches.
 	maxBatchSize = 1000
+	// enrichConcurrency bounds parallel /v1/vulns/{id} fetches. OSV's
+	// public API has a soft rate limit; staying low is friendly.
+	enrichConcurrency = 8
 )
 
 // Client handles Google OSV API interactions
 type Client struct {
-	httpClient *http.Client
-	timeout    time.Duration
-	endpoint   string // overrideable in tests
-	batchSize  int    // overrideable in tests
+	httpClient    *http.Client
+	timeout       time.Duration
+	endpoint      string // overrideable in tests (POST /querybatch)
+	vulnsEndpoint string // overrideable in tests (GET /vulns/{id})
+	batchSize     int    // overrideable in tests
 }
 
 // NewClient creates a new OSV client
@@ -39,10 +45,11 @@ func NewClient(cfg config.OSVConfig) *Client {
 	retryClient.Logger = nil // Disable logging
 
 	return &Client{
-		httpClient: retryClient.StandardClient(),
-		timeout:    cfg.Timeout,
-		endpoint:   batchURL,
-		batchSize:  maxBatchSize,
+		httpClient:    retryClient.StandardClient(),
+		timeout:       cfg.Timeout,
+		endpoint:      batchURL,
+		vulnsEndpoint: vulnsURL,
+		batchSize:     maxBatchSize,
 	}
 }
 
@@ -96,7 +103,13 @@ func (c *Client) Scan(ctx context.Context, packages []manifest.Package) (*types.
 		if err != nil {
 			return nil, err
 		}
-		findings = append(findings, c.convertToFindings(chunk, resp)...)
+
+		// /v1/querybatch returns only vulnerability IDs. Fetch full
+		// records for the unique IDs in this chunk so findings carry
+		// severity, summary, and references.
+		details, _ := c.enrich(ctx, collectVulnIDs(resp))
+
+		findings = append(findings, c.convertToFindings(chunk, resp, details)...)
 	}
 
 	return &types.ScanResult{
@@ -146,7 +159,7 @@ func (c *Client) doBatchQuery(ctx context.Context, req batchRequest) (*batchResp
 	return &batchResp, nil
 }
 
-func (c *Client) convertToFindings(packages []manifest.Package, resp *batchResponse) []types.Finding {
+func (c *Client) convertToFindings(packages []manifest.Package, resp *batchResponse, details map[string]vulnerability) []types.Finding {
 	var findings []types.Finding
 
 	for i, result := range resp.Results {
@@ -156,22 +169,124 @@ func (c *Client) convertToFindings(packages []manifest.Package, resp *batchRespo
 		pkg := packages[i]
 
 		for _, vuln := range result.Vulns {
-			severity := c.mapSeverity(vuln)
+			// Merge the shallow batch record with the enriched one. The
+			// batch record only reliably carries ID; everything else comes
+			// from /v1/vulns/{id}.
+			merged := vuln
+			if d, ok := details[vuln.ID]; ok {
+				merged = d
+				if merged.ID == "" {
+					merged.ID = vuln.ID
+				}
+			}
+
 			finding := types.Finding{
 				Package:     pkg.Name,
 				Version:     pkg.Version,
 				Type:        types.FindingTypeCVE,
-				Severity:    severity,
-				Title:       vuln.Summary,
-				Description: truncate(vuln.Details, 500),
-				ID:          vuln.ID,
-				References:  c.extractReferences(vuln.References),
+				Severity:    c.mapSeverity(merged),
+				Title:       merged.Summary,
+				Description: truncate(merged.Details, 500),
+				ID:          merged.ID,
+				References:  c.extractReferences(merged.References),
 			}
 			findings = append(findings, finding)
 		}
 	}
 
 	return findings
+}
+
+// collectVulnIDs returns the unique vuln IDs referenced anywhere in resp,
+// in deterministic order so tests can pin behavior.
+func collectVulnIDs(resp *batchResponse) []string {
+	if resp == nil {
+		return nil
+	}
+	seen := make(map[string]struct{})
+	var ids []string
+	for _, r := range resp.Results {
+		for _, v := range r.Vulns {
+			if v.ID == "" {
+				continue
+			}
+			if _, ok := seen[v.ID]; ok {
+				continue
+			}
+			seen[v.ID] = struct{}{}
+			ids = append(ids, v.ID)
+		}
+	}
+	return ids
+}
+
+// enrich fetches /v1/vulns/{id} for each id in parallel (bounded). Returns
+// whatever it managed to collect plus the first error seen; the caller
+// degrades to shallow findings if enrichment fails partially.
+func (c *Client) enrich(ctx context.Context, ids []string) (map[string]vulnerability, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	out := make(map[string]vulnerability, len(ids))
+	var (
+		mu       sync.Mutex
+		firstErr error
+		wg       sync.WaitGroup
+	)
+	sem := make(chan struct{}, enrichConcurrency)
+
+	for _, id := range ids {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func(id string) {
+			defer wg.Done()
+			defer func() { <-sem }()
+
+			v, err := c.fetchVuln(ctx, id)
+			if err != nil {
+				mu.Lock()
+				if firstErr == nil {
+					firstErr = err
+				}
+				mu.Unlock()
+				return
+			}
+			mu.Lock()
+			out[id] = *v
+			mu.Unlock()
+		}(id)
+	}
+	wg.Wait()
+	return out, firstErr
+}
+
+func (c *Client) fetchVuln(ctx context.Context, id string) (*vulnerability, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	endpoint := c.vulnsEndpoint
+	if endpoint == "" {
+		endpoint = vulnsURL
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, "GET", endpoint+id, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create vuln request: %w", err)
+	}
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("fetch vuln %s: %w", id, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("vuln %s: status %d: %s", id, resp.StatusCode, string(body))
+	}
+	var v vulnerability
+	if err := json.NewDecoder(resp.Body).Decode(&v); err != nil {
+		return nil, fmt.Errorf("decode vuln %s: %w", id, err)
+	}
+	return &v, nil
 }
 
 // mapSeverity resolves a vulnerability to one of our internal severity
