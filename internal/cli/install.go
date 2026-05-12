@@ -195,33 +195,7 @@ func evaluateScanResults(cfg *config.Config, display *ui.UI, result *scanner.Agg
 	}
 
 	display.Print(fmt.Sprintf("\nFound %d issue(s):", result.TotalFindings))
-
-	malwareFindings := result.MalwareFindings()
-	if len(malwareFindings) > 0 {
-		display.Print("")
-		display.Error("Malware/Supply Chain Threats:")
-		for _, f := range malwareFindings {
-			display.ThreatFound(string(f.Severity), f.Package+"@"+f.Version, f.Description, f.Remediation)
-		}
-	}
-
-	cveFindings := result.CVEFindings()
-	if len(cveFindings) > 0 {
-		display.Print("")
-		display.Warning("Vulnerabilities (CVEs):")
-		for _, sev := range []scanner.Severity{
-			scanner.SeverityCritical,
-			scanner.SeverityHigh,
-			scanner.SeverityMedium,
-			scanner.SeverityLow,
-		} {
-			for _, f := range cveFindings {
-				if f.Severity == sev {
-					display.ThreatFound(string(sev), f.Package+"@"+f.Version, f.Title, f.Remediation)
-				}
-			}
-		}
-	}
+	renderFindingsGrouped(display, result.AllFindings())
 
 	if decision := scanner.EvaluatePolicy(cfg, result); decision.ShouldBlock {
 		display.Print("")

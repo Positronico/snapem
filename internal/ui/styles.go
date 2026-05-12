@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/charmbracelet/lipgloss"
@@ -156,37 +157,75 @@ func (u *UI) ScannerStatus(scanner string, status string, isRunning bool) {
 	}
 }
 
-// ThreatFound prints a threat message. fix is an optional remediation
-// string (e.g. "Fixed in 4.17.21"); empty means "no fix surfaced".
-func (u *UI) ThreatFound(severity, pkg, desc, fix string) {
+// PackageHeader prints a header for one package's findings block, e.g.
+//
+//	▶ lodash@4.17.20  (5 issues)
+//
+// followed by indented ThreatLine calls. Severity-tinted by the worst
+// finding under the package so the eye lands on critical issues first.
+func (u *UI) PackageHeader(pkg string, count int, worstSeverity string) {
 	if u.quiet {
 		return
 	}
-	var style lipgloss.Style
-	switch severity {
-	case "critical":
-		style = StyleCritical
-	case "high":
-		style = StyleHigh
-	case "medium":
-		style = StyleMedium
-	default:
-		style = StyleLow
+	style := severityStyle(worstSeverity)
+	if u.useColor {
+		os.Stdout.WriteString("\n  " + style.Render("▶") + " " + StyleBold.Render(pkg) + StyleMuted.Render(fmt.Sprintf("  (%d issue%s)", count, plural(count))) + "\n")
+	} else {
+		os.Stdout.WriteString("\n  > " + pkg + fmt.Sprintf("  (%d issue%s)\n", count, plural(count)))
+	}
+}
+
+// ThreatLine prints one finding under a PackageHeader. id is shown when
+// non-empty; fix and url emit additional indented lines when present.
+func (u *UI) ThreatLine(severity, id, title, fix, url string) {
+	if u.quiet {
+		return
+	}
+	style := severityStyle(severity)
+
+	prefix := "[" + severity + "]"
+	header := title
+	if id != "" {
+		header = id + ": " + title
 	}
 
 	if u.useColor {
-		os.Stdout.WriteString("  " + style.Render("▶ "+severity) + " " + StyleBold.Render(pkg) + "\n")
-		os.Stdout.WriteString("    " + StyleMuted.Render(desc) + "\n")
+		os.Stdout.WriteString("    " + style.Render(prefix) + " " + header + "\n")
 		if fix != "" {
-			os.Stdout.WriteString("    " + StyleSuccess.Render("→ "+fix) + "\n")
+			os.Stdout.WriteString("      " + StyleSuccess.Render("→ "+fix) + "\n")
+		}
+		if url != "" {
+			os.Stdout.WriteString("      " + StyleMuted.Render(url) + "\n")
 		}
 	} else {
-		os.Stdout.WriteString("  [" + severity + "] " + pkg + "\n")
-		os.Stdout.WriteString("    " + desc + "\n")
+		os.Stdout.WriteString("    " + prefix + " " + header + "\n")
 		if fix != "" {
-			os.Stdout.WriteString("    -> " + fix + "\n")
+			os.Stdout.WriteString("      -> " + fix + "\n")
+		}
+		if url != "" {
+			os.Stdout.WriteString("      " + url + "\n")
 		}
 	}
+}
+
+func severityStyle(severity string) lipgloss.Style {
+	switch severity {
+	case "critical":
+		return StyleCritical
+	case "high":
+		return StyleHigh
+	case "medium":
+		return StyleMedium
+	default:
+		return StyleLow
+	}
+}
+
+func plural(n int) string {
+	if n == 1 {
+		return ""
+	}
+	return "s"
 }
 
 // ContainerHeader prints the container execution header
