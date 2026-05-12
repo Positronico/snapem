@@ -1,0 +1,36 @@
+# Changelog
+
+All notable changes to snapem. Versions follow [SemVer](https://semver.org).
+
+## Unreleased
+
+### Added
+- `snapem cache info` and `snapem cache clear` subcommands. File-based scan cache (one JSON per `(scanner, ecosystem, name, version)` under `os.UserCacheDir()/snapem/`, schema-versioned, TTL from `scanning.cache.ttl`).
+- `bun.lock` (text) parsing for full transitive scanning on Bun 1.1+ projects. Clear warning emitted when only the binary `bun.lockb` is present.
+- pnpm support: `pnpm-lock.yaml` parser (v9+ `snapshots` and v6–v8 `packages` shapes), pnpm `Manager` that runs via corepack inside `node:lts-slim`, `--package-manager pnpm`.
+- Version-aware allowlist and blocklist: entries accept `name` (all versions) or `name@version` (exact). Name-only allowlist used to exempt every future release forever — a real security regression.
+- Scan output groups findings by package, sorts by severity within, and prints a canonical advisory URL (GHSA / NVD) plus a `Fixed in X.Y.Z` line per finding.
+- OSV findings are now enriched via `/v1/vulns/{id}` (was only IDs from `/querybatch`), so titles, descriptions, references, and severities populate.
+- `--package-manager`, `--include`, and `container.network` config values are validated up front instead of silently falling back to defaults.
+
+### Changed
+- `EvaluatePolicy` is the single decision path for both `install` and `scan`. Previously `scan` only blocked on malware + critical CVE and silently exited 0 for high/medium even when policy said block.
+- OSV and Socket batch requests are deduplicated and chunked (OSV 1000/req per spec, Socket 200/req conservative).
+- Both scanners retry 429 with `Retry-After` honored; retry exhaustion produces "rate limit exceeded after N attempts" instead of opaque "giving up".
+- Default `container.environment` no longer forwards `NPM_TOKEN` — a malicious install script would otherwise see the publish token.
+- CI: bumped `actions/checkout` v4 → v6, `actions/setup-go` v5 → v6, `goreleaser/goreleaser-action` v6 → v7; pinned goreleaser CLI to `~> v2`.
+
+### Fixed
+- Blocklist was silently ignored on `install` and `scan` (`ScanWithProgress` was a 95%-duplicate of `Scan` and dropped the blocklist injection).
+- CVSS parser replaced — the previous implementation counted substring occurrences via a buggy hand-rolled `contains()` and produced scores unrelated to the spec. Now a real CVSS v3 base-score calculator, with `database_specific.severity` preferred when GHSA published it.
+- Configuration defaults disagreed across three places (viper SetDefault, the YAML template, post-load fallback). Single source of truth in `config.Defaults()` now, locked by a test.
+- `--no-color` was sign-inverted via viper binding. Now resolved by a `useColor(cfg, flag)` helper with a truth-table test.
+- CLI errors exited silently — `rootCmd` had `SilenceErrors=true` and `main.go` discarded the returned error. Now printed, with the typed `SnapemError` exit code propagated.
+
+### Testing
+- 7 packages covered (up from 1). Network-using code uses `httptest` mocks; no test hits live APIs.
+- Apple `container` CLI argument generation pinned with a golden test so a flag rename surfaces as a deterministic failure.
+
+## v0.1.2 — 2025-12-19
+
+Earlier releases predate this changelog. See `git log v0.1.2` and prior tags for history.
