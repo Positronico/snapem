@@ -118,13 +118,23 @@ func (r *AppleRuntime) buildArgs(opts *RunOptions) []string {
 		args = append(args, "--publish", fmt.Sprintf("%s:%s", p.HostPort, p.ContainerPort))
 	}
 
-	// Network mode
-	// Apple container CLI uses --network none to disable network access
-	// By default containers have network access
+	// Network mode.
+	//
+	// container v0.9.0 takes --network <name> (a network *name*, NOT a
+	// docker-style mode). The default network is "default" and is created
+	// automatically when the container service starts. There is no
+	// equivalent of "--network host" — every container runs in its own
+	// vmnet namespace. We emit nothing for NetworkHost and rely on the
+	// default network attachment.
+	//
+	// "none" is not a documented network name. Passing --network none
+	// will fail if no network of that name exists, which is the desired
+	// behaviour for an explicit isolation request: the container won't
+	// start, so no network is exposed. If/when Apple ships a documented
+	// isolated network primitive we can switch to it here.
 	switch opts.Network {
 	case NetworkNone:
 		args = append(args, "--network", "none")
-	// NetworkHost is the default - containers have network access
 	}
 
 	// Environment variables
