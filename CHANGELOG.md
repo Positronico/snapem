@@ -2,7 +2,7 @@
 
 All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
-## Unreleased
+## v0.4.0 — 2026-05-12
 
 ### Added
 - `snapem agent` subcommand. `snapem agent install` writes an instruction file that teaches AI coding assistants (Claude Code, AGENTS.md-aware tools) to use snapem instead of invoking npm/bun/pnpm directly — including how to surface block-severity findings with their `Fixed in X.Y.Z` remediation instead of bypassing them. Default writes a Claude Code skill at `~/.claude/skills/snapem.md`; `--format=md` writes `./AGENTS.md` in plain markdown. Refuses to overwrite existing files without `--force`.
