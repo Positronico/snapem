@@ -18,6 +18,7 @@ import (
 var (
 	runNoNetwork    bool
 	runNoPorts      bool
+	runReadOnly     bool
 	runPublishPorts []string
 )
 
@@ -46,6 +47,7 @@ Examples:
 func init() {
 	runCmd.Flags().BoolVar(&runNoNetwork, "no-network", false, "disable network access in container")
 	runCmd.Flags().BoolVar(&runNoPorts, "no-ports", false, "disable automatic port detection")
+	runCmd.Flags().BoolVar(&runReadOnly, "read-only", false, "mount project as read-only — the container cannot modify your source")
 	runCmd.Flags().BoolVar(&noContainer, "no-container", false, "run without container isolation")
 	runCmd.Flags().StringArrayVarP(&runPublishPorts, "publish", "p", nil, "publish container port to host (e.g., -p 3000 or -p 8080:80)")
 
@@ -95,7 +97,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 		networkMode = container.NetworkNone
 	}
 
-	opts := pkgmanager.BuildContainerOptions(mgr, projectDir, networkMode, runCommand)
+	opts := pkgmanager.BuildContainerOptionsRO(mgr, projectDir, networkMode, runCommand, runReadOnly)
 
 	// Port handling: explicit -p flags take precedence
 	if len(runPublishPorts) > 0 {

@@ -214,8 +214,22 @@ func Detect(projectDir string, preferred string, images map[string]string) Manag
 	return NewNPM(npmImage)
 }
 
-// BuildContainerOptions creates container run options for the given manager and command
+// BuildContainerOptions creates container run options for the given
+// manager and command. Mounts the project directory at /app read-write
+// by default; callers can flip readOnly=true via BuildContainerOptionsRO
+// for `snapem exec --read-only` / `snapem run --read-only`.
+//
+// Install paths must NOT use read-only: npm writes node_modules,
+// package-lock.json, and (sometimes) the cache directory back through
+// the bind mount. Read-only would fail the install before the lockfile
+// is created.
 func BuildContainerOptions(mgr Manager, projectDir string, network container.NetworkMode, command []string) *container.RunOptions {
+	return BuildContainerOptionsRO(mgr, projectDir, network, command, false)
+}
+
+// BuildContainerOptionsRO is BuildContainerOptions with explicit control
+// over the read-only bit on the project volume mount.
+func BuildContainerOptionsRO(mgr Manager, projectDir string, network container.NetworkMode, command []string, readOnly bool) *container.RunOptions {
 	absPath, _ := filepath.Abs(projectDir)
 
 	return &container.RunOptions{
@@ -230,7 +244,7 @@ func BuildContainerOptions(mgr Manager, projectDir string, network container.Net
 			{
 				HostPath:      absPath,
 				ContainerPath: "/app",
-				ReadOnly:      false,
+				ReadOnly:      readOnly,
 			},
 		},
 		Environment: make(map[string]string),

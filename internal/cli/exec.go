@@ -15,6 +15,7 @@ import (
 
 var (
 	execNoNetwork bool
+	execReadOnly  bool
 	execImage     string
 )
 
@@ -37,6 +38,7 @@ Examples:
 
 func init() {
 	execCmd.Flags().BoolVar(&execNoNetwork, "no-network", false, "disable network access in container")
+	execCmd.Flags().BoolVar(&execReadOnly, "read-only", false, "mount project as read-only — the container cannot modify your source")
 	execCmd.Flags().BoolVar(&noContainer, "no-container", false, "run without container isolation")
 	execCmd.Flags().StringVar(&execImage, "image", "", "custom container image")
 
@@ -91,7 +93,7 @@ func runExec(cmd *cobra.Command, args []string) error {
 			{
 				HostPath:      projectDir,
 				ContainerPath: "/app",
-				ReadOnly:      false,
+				ReadOnly:      execReadOnly,
 			},
 		},
 		Environment: make(map[string]string),
