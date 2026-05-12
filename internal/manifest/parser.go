@@ -135,7 +135,16 @@ func (p *Parser) GetDependenciesWithNotes(includeDev bool) ([]Package, []string,
 		return pkgs, notes, nil
 	}
 
-	// 2) npm lockfile v2+ — the well-trodden path.
+	// 2) pnpm-lock.yaml — same idea.
+	if p.HasPnpmLockfile() {
+		pkgs, err := p.ParsePnpmLockfile()
+		if err != nil {
+			return nil, notes, err
+		}
+		return pkgs, notes, nil
+	}
+
+	// 3) npm lockfile v2+ — the well-trodden path.
 	lockfile, _ := p.ParseLockfile() // Ignore error, lockfile is optional
 	if lockfile != nil && lockfile.LockfileVersion >= 2 {
 		var pkgs []Package

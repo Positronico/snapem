@@ -90,19 +90,20 @@
   - Add spinner during API calls
   - Show progress bar for large scans
 
-- [ ] **Better scan output**
-  - Show remediation suggestions for CVEs
-  - Link to vulnerability details
-  - Group findings by package
+- [x] **Better scan output**
+  - [x] Show remediation suggestions for CVEs (Fixed in X.Y.Z lines)
+  - [x] Link to vulnerability details (GHSA/CVE canonical URLs)
+  - [x] Group findings by package
 
 ### Configuration
 - [ ] **Project-level overrides**
   - Support `.snapemrc` file
   - Support `snapem` key in package.json
 
-- [ ] **Per-package policies**
-  - Allow different policies per package
-  - Version-specific exceptions
+- [x] **Per-version allowlist / blocklist** — entries now accept `name` (all versions) or `name@version` (exact). Name-only entries used to exempt every future release of a package forever.
+
+- [ ] **Per-package policy actions**
+  - Allow different block/warn/ignore actions per package
 
 ## Low Priority
 
@@ -113,7 +114,7 @@
 - [ ] **Audit logging**
 
 ### Package Manager Support
-- [ ] **pnpm support**
+- [x] **pnpm support** — pnpm-lock.yaml parser (v9+ snapshots, v6-v8 packages fallback); PNPM Manager runs via corepack inside node:lts-slim
 - [ ] **yarn support**
 
 ### Performance
