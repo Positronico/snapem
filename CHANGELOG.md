@@ -2,6 +2,13 @@
 
 All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
+## Unreleased
+
+### Added
+- `snapem doctor` subcommand. Inspects the runtime environment (container CLI, service status, `SOCKET_API_TOKEN`, cache directory, OSV/Socket reachability) and prints a checklist. Exits non-zero only on blocking issues; missing token surfaces as a warning.
+- `--read-only` flag on `snapem exec` and `snapem run`. Mounts the project at `/app` with `:ro` so untrusted scripts can't write back to your source. Not added to `install` (npm needs to write `node_modules` and `package-lock.json`).
+- Build-tag-gated E2E test suite for the Apple container runtime (`make test-e2e`). Three cases: bind-mount writability, read-only volume rejection, `--network none` blocking DNS. Skips cleanly when the container service is down.
+
 ## v0.3.0 — 2026-05-12
 
 ### Added
