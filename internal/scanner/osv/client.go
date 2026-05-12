@@ -17,8 +17,10 @@ import (
 )
 
 const (
-	baseURL      = "https://api.osv.dev/v1"
-	batchURL     = baseURL + "/querybatch"
+	baseURL  = "https://api.osv.dev/v1"
+	batchURL = baseURL + "/querybatch"
+	// OSV /v1/querybatch caps requests at 1000 queries. We chunk eagerly
+	// instead of letting the API reject oversized batches.
 	maxBatchSize = 1000
 )
 
@@ -26,6 +28,8 @@ const (
 type Client struct {
 	httpClient *http.Client
 	timeout    time.Duration
+	endpoint   string // overrideable in tests
+	batchSize  int    // overrideable in tests
 }
 
 // NewClient creates a new OSV client
@@ -37,6 +41,8 @@ func NewClient(cfg config.OSVConfig) *Client {
 	return &Client{
 		httpClient: retryClient.StandardClient(),
 		timeout:    cfg.Timeout,
+		endpoint:   batchURL,
+		batchSize:  maxBatchSize,
 	}
 }
 
@@ -50,7 +56,9 @@ func (c *Client) IsAvailable() bool {
 	return true
 }
 
-// Scan queries OSV for vulnerabilities in the given packages
+// Scan queries OSV for vulnerabilities in the given packages. Packages are
+// chunked to respect the /v1/querybatch limit; chunks fire sequentially to
+// keep memory pressure low (the OSV response can be large per chunk).
 func (c *Client) Scan(ctx context.Context, packages []manifest.Package) (*types.ScanResult, error) {
 	start := time.Now()
 
@@ -63,29 +71,33 @@ func (c *Client) Scan(ctx context.Context, packages []manifest.Package) (*types.
 		}, nil
 	}
 
-	// Build batch request
-	req := batchRequest{
-		Queries: make([]query, len(packages)),
+	batch := c.batchSize
+	if batch <= 0 {
+		batch = maxBatchSize
 	}
 
-	for i, pkg := range packages {
-		req.Queries[i] = query{
-			Package: packageInfo{
-				Name:      pkg.Name,
-				Ecosystem: "npm",
-			},
-			Version: pkg.Version,
+	var findings []types.Finding
+	for offset := 0; offset < len(packages); offset += batch {
+		end := offset + batch
+		if end > len(packages) {
+			end = len(packages)
 		}
-	}
+		chunk := packages[offset:end]
 
-	// Execute request
-	resp, err := c.doBatchQuery(ctx, req)
-	if err != nil {
-		return nil, err
-	}
+		req := batchRequest{Queries: make([]query, len(chunk))}
+		for i, pkg := range chunk {
+			req.Queries[i] = query{
+				Package: packageInfo{Name: pkg.Name, Ecosystem: "npm"},
+				Version: pkg.Version,
+			}
+		}
 
-	// Convert to findings
-	findings := c.convertToFindings(packages, resp)
+		resp, err := c.doBatchQuery(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		findings = append(findings, c.convertToFindings(chunk, resp)...)
+	}
 
 	return &types.ScanResult{
 		Scanner:      c.Name(),
@@ -104,7 +116,11 @@ func (c *Client) doBatchQuery(ctx context.Context, req batchRequest) (*batchResp
 		return nil, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", batchURL, bytes.NewReader(body))
+	endpoint := c.endpoint
+	if endpoint == "" {
+		endpoint = batchURL
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

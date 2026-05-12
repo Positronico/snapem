@@ -61,7 +61,7 @@ func (o *Orchestrator) scan(ctx context.Context, packages []manifest.Package, on
 		}, nil
 	}
 
-	filteredPackages := o.filterAllowlisted(packages)
+	filteredPackages := dedupePackages(o.filterAllowlisted(packages))
 
 	results, firstErr := o.runScanners(ctx, filteredPackages, onProgress)
 
@@ -141,6 +141,27 @@ func (o *Orchestrator) runScanners(ctx context.Context, packages []manifest.Pack
 	}
 
 	return results, firstErr
+}
+
+// dedupePackages collapses duplicate (name, version) pairs, preserving the
+// first-seen order. Lockfile traversal commonly produces the same package
+// many times via nested node_modules paths, which would otherwise inflate
+// the bytes shipped to OSV/Socket and waste rate limits.
+func dedupePackages(packages []manifest.Package) []manifest.Package {
+	if len(packages) == 0 {
+		return packages
+	}
+	seen := make(map[string]struct{}, len(packages))
+	out := make([]manifest.Package, 0, len(packages))
+	for _, p := range packages {
+		key := p.Name + "@" + p.Version + "/" + p.Ecosystem
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, p)
+	}
+	return out
 }
 
 func (o *Orchestrator) filterAllowlisted(packages []manifest.Package) []manifest.Package {
