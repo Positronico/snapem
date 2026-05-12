@@ -53,18 +53,20 @@
 - [x] Configuration validation tests
 - [x] CVSS parser tests (table-driven with real vectors)
 - [ ] Manifest parser fixtures for v1 lockfiles (existing tests cover v2 paths only)
-- [ ] Package argument parsing edge cases (`parsePackageArg`)
+- [x] Package argument parsing edge cases (`parsePackageArg`)
 - [ ] End-to-end test against `container` runtime (gated behind a build tag)
 
 ### Security Scanner
 - [x] **OSV finding enrichment** — fetch /v1/vulns/{id} after batch query so titles, severities, and references populate
 - [x] **Batch chunking + dedup** — respect OSV's 1000/req cap; Socket conservative 200/req; dedupe (name, version) across nested node_modules paths
+- [x] **Remediation surfacing** — pull `affected[].ranges[].events.fixed` and render "Fixed in X.Y.Z" in install/scan output
 
-- [ ] **Scan result caching**
-  - Implement file-based cache in `~/.cache/snapem/`
-  - Cache key based on package name + version
-  - Respect TTL from configuration
-  - Invalidate cache on config changes
+- [x] **Scan result caching**
+  - File-based cache under `os.UserCacheDir()/snapem/`, one JSON per (scanner, ecosystem, name, version)
+  - TTL from `scanning.cache.ttl`; schema-versioned so future shape changes invalidate cleanly
+  - Per-scanner decorator so dedup at the orchestrator and chunking at the client both still apply to the miss set
+  - Misconfigured cache directory degrades to no-cache rather than failing the scan
+  - Follow-up: `snapem cache clear` subcommand
 
 - [ ] **Rate limiting**
   - Handle Socket.dev rate limits gracefully

@@ -2,11 +2,14 @@ package scanner
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/positronico/snapem/internal/config"
 	"github.com/positronico/snapem/internal/manifest"
+	"github.com/positronico/snapem/internal/scanner/cache"
 	"github.com/positronico/snapem/internal/scanner/osv"
 	"github.com/positronico/snapem/internal/scanner/socket"
 )
@@ -21,18 +24,53 @@ type Orchestrator struct {
 	config   *config.Config
 }
 
-// NewOrchestrator creates a new scanner orchestrator.
+// NewOrchestrator creates a new scanner orchestrator. When caching is
+// enabled (scanning.cache.enabled), each scanner is wrapped in a file-cache
+// decorator so repeat invocations against unchanged (name, version) tuples
+// don't re-hit the upstream APIs. A cache directory that can't be created
+// disables caching rather than failing the run.
 func NewOrchestrator(cfg *config.Config) *Orchestrator {
 	o := &Orchestrator{config: cfg}
 
+	store, ttl := buildCache(cfg)
+
 	if cfg.Scanning.Socket.Enabled {
-		o.scanners = append(o.scanners, socket.NewClient(cfg.Scanning.Socket))
+		o.scanners = append(o.scanners, wrapCache(socket.NewClient(cfg.Scanning.Socket), store, ttl))
 	}
 	if cfg.Scanning.OSV.Enabled {
-		o.scanners = append(o.scanners, osv.NewClient(cfg.Scanning.OSV))
+		o.scanners = append(o.scanners, wrapCache(osv.NewClient(cfg.Scanning.OSV), store, ttl))
 	}
 
 	return o
+}
+
+// buildCache returns (store, ttl) for use by wrapCache. Either may be the
+// zero value, which makes wrapCache a pass-through.
+func buildCache(cfg *config.Config) (cache.Store, time.Duration) {
+	if !cfg.Scanning.Cache.Enabled || cfg.Scanning.Cache.TTL <= 0 {
+		return nil, 0
+	}
+	dir := cfg.Scanning.Cache.Directory
+	if dir == "" {
+		return nil, 0
+	}
+	store, err := cache.NewFileStore(dir)
+	if err != nil {
+		// Degrade gracefully: a misconfigured cache must not break a scan.
+		fmt.Fprintln(os.Stderr, "snapem: cache disabled —", err)
+		return nil, 0
+	}
+	return store, cfg.Scanning.Cache.TTL
+}
+
+// wrapCache wraps inner in a caching Scanner if store is non-nil. The
+// concrete *cache.Scanner satisfies our local Scanner interface because
+// it exposes Name/IsAvailable/Scan with matching signatures.
+func wrapCache(inner Scanner, store cache.Store, ttl time.Duration) Scanner {
+	if store == nil || ttl <= 0 {
+		return inner
+	}
+	return cache.NewScanner(inner, store, ttl)
 }
 
 // Scan runs all configured scanners concurrently and applies policy
