@@ -137,10 +137,13 @@ func runSecurityScan(ctx context.Context, cfg *config.Config, display *ui.UI, pa
 	}
 
 	// Get packages to scan
-	packages, err := parser.GetDependencies(true)
+	packages, notes, err := parser.GetDependenciesWithNotes(true)
 	if err != nil {
 		display.Warning("Could not parse dependencies, scanning new packages only")
 		packages = []manifest.Package{}
+	}
+	for _, n := range notes {
+		display.Warning(n)
 	}
 
 	// Add new packages being installed (parse name@version format)

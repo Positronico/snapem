@@ -88,9 +88,14 @@ func runScan(cmd *cobra.Command, args []string) error {
 	includeDev := scanInclude == "all" || scanInclude == "dev"
 
 	// Get packages to scan
-	packages, err := parser.GetDependencies(includeDev)
+	packages, notes, err := parser.GetDependenciesWithNotes(includeDev)
 	if err != nil {
 		return errors.ManifestError("failed to parse dependencies", err)
+	}
+	if !scanJSON {
+		for _, n := range notes {
+			display.Warning(n)
+		}
 	}
 
 	if len(packages) == 0 {

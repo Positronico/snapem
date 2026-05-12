@@ -135,9 +135,11 @@ func Detect(projectDir string, preferred string, images map[string]string) Manag
 		return NewBun(bunImage)
 	}
 
-	// Auto-detect based on lockfiles
+	// Auto-detect based on lockfiles. Prefer bun.lock (text) since it's
+	// the format bun 1.2+ writes by default; bun.lockb (binary) is the
+	// legacy fallback for older bun installs.
 	parser := manifest.NewParser(projectDir)
-	if parser.HasBunLockfile() {
+	if parser.HasBunTextLockfile() || parser.HasBunLockfile() {
 		return NewBun(bunImage)
 	}
 
