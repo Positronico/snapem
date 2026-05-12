@@ -2,7 +2,7 @@
 
 All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
-## Unreleased
+## v0.5.0 — 2026-05-12
 
 ### Added
 - `snapem upgrade` subcommand. Scans the current dependency tree, groups findings by package, picks a per-package upgrade target that resolves every finding for that package (lowest version within the current major by default; `--major` opts into cross-major bumps), and applies the install through the container after confirmation. `--dry-run` prints the plan only; `--yes` skips the prompt. Transitive dependencies are reported but not auto-fixed.
