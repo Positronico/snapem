@@ -103,62 +103,97 @@ func (p *Parser) HasBunLockfile() bool {
 	return err == nil
 }
 
-// GetDependencies extracts all dependencies from manifest and lockfile
+// GetDependencies extracts every dependency from whichever lockfile this
+// project uses, falling back to package.json's declared (possibly ranged)
+// versions when no lockfile is available.
+//
+// Preference order:
+//  1. bun.lock (text, bun 1.1+)
+//  2. package-lock.json (npm v7+, LockfileVersion >= 2)
+//  3. package.json — top-level only; transitive deps are not visible
+//
+// Bun's legacy bun.lockb is binary and not parseable here; if it's the
+// only artifact we have, the caller still gets a result but only from
+// package.json, and Notes is populated so the CLI can warn the user.
 func (p *Parser) GetDependencies(includeDev bool) ([]Package, error) {
-	manifest, err := p.ParseManifest()
-	if err != nil {
-		return nil, err
+	pkgs, _, err := p.GetDependenciesWithNotes(includeDev)
+	return pkgs, err
+}
+
+// GetDependenciesWithNotes is GetDependencies plus advisory messages that
+// the caller should surface to the user (e.g. "you have only bun.lockb,
+// transitive scanning unavailable"). Notes are non-fatal.
+func (p *Parser) GetDependenciesWithNotes(includeDev bool) ([]Package, []string, error) {
+	var notes []string
+
+	// 1) Prefer bun.lock when present — it carries the full resolved tree.
+	if p.HasBunTextLockfile() {
+		pkgs, err := p.ParseBunLockfile()
+		if err != nil {
+			return nil, notes, err
+		}
+		return pkgs, notes, nil
 	}
 
+	// 2) npm lockfile v2+ — the well-trodden path.
 	lockfile, _ := p.ParseLockfile() // Ignore error, lockfile is optional
-
-	var packages []Package
-
-	// If we have a lockfile, use exact versions from it
 	if lockfile != nil && lockfile.LockfileVersion >= 2 {
+		var pkgs []Package
 		for pkgPath, pkgInfo := range lockfile.Packages {
-			// Skip root package
 			if pkgPath == "" {
 				continue
 			}
-			// Skip dev dependencies if not included
 			if pkgInfo.Dev && !includeDev {
 				continue
 			}
-			// Extract package name from path
-			// e.g., "node_modules/lodash" -> "lodash"
-			// e.g., "node_modules/@babel/core" -> "@babel/core"
 			name := extractPackageName(pkgPath)
 			if name == "" || pkgInfo.Version == "" {
 				continue
 			}
-			packages = append(packages, Package{
+			pkgs = append(pkgs, Package{
 				Name:      name,
 				Version:   pkgInfo.Version,
 				Ecosystem: "npm",
 			})
 		}
-	} else {
-		// Fall back to manifest versions (may include ranges)
-		for name, version := range manifest.Dependencies {
-			packages = append(packages, Package{
+		return pkgs, notes, nil
+	}
+
+	// 3) Fallback. Warn the user if we suspect we're missing transitive
+	// data they would expect to be scanned.
+	manifest, err := p.ParseManifest()
+	if err != nil {
+		return nil, notes, err
+	}
+	if p.HasBunLockfile() {
+		notes = append(notes,
+			"Only bun.lockb (binary) found. Transitive scanning is unavailable. "+
+				"Run `bun install --save-text-lockfile` (bun 1.1+) or upgrade to bun 1.2+ "+
+				"to emit bun.lock and get full coverage.")
+	} else if !p.HasLockfile() {
+		notes = append(notes,
+			"No lockfile found. Scanning declared dependencies only; "+
+				"transitive packages will not be checked.")
+	}
+
+	var pkgs []Package
+	for name, version := range manifest.Dependencies {
+		pkgs = append(pkgs, Package{
+			Name:      name,
+			Version:   cleanVersion(version),
+			Ecosystem: "npm",
+		})
+	}
+	if includeDev {
+		for name, version := range manifest.DevDependencies {
+			pkgs = append(pkgs, Package{
 				Name:      name,
 				Version:   cleanVersion(version),
 				Ecosystem: "npm",
 			})
 		}
-		if includeDev {
-			for name, version := range manifest.DevDependencies {
-				packages = append(packages, Package{
-					Name:      name,
-					Version:   cleanVersion(version),
-					Ecosystem: "npm",
-				})
-			}
-		}
 	}
-
-	return packages, nil
+	return pkgs, notes, nil
 }
 
 // GetDirectDependencies returns only direct dependencies from package.json
