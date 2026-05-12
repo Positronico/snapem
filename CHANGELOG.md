@@ -2,6 +2,15 @@
 
 All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
+## Unreleased
+
+### Added
+- `snapem upgrade` subcommand. Scans the current dependency tree, groups findings by package, picks a per-package upgrade target that resolves every finding for that package (lowest version within the current major by default; `--major` opts into cross-major bumps), and applies the install through the container after confirmation. `--dry-run` prints the plan only; `--yes` skips the prompt. Transitive dependencies are reported but not auto-fixed.
+- `Finding.FixedVersions []string` — structured form of the `Fixed in X, Y, Z` remediation. Used by `snapem upgrade` to pick a target version programmatically. Cache `schemaVersion` bumped 1 → 2 so older entries refetch and pick up the new field.
+
+### Changed
+- Agent template (`snapem agent install`) now recommends `snapem upgrade` as the primary remediation path when scan blocks, with `snapem install <pkg>@<version>` as the surgical fallback. Updates the install location for users who reinstall the skill (`snapem agent install --force`).
+
 ## v0.4.0 — 2026-05-12
 
 ### Added
