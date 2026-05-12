@@ -5,17 +5,19 @@ import (
 	"strings"
 )
 
-// remediationFor returns a human-readable suggestion describing the version(s)
-// in which the vulnerability is fixed for pkgName, or "" if OSV did not
-// publish a fix.
+// remediationFor returns the structured list of fixed versions plus a
+// human-readable summary line for pkgName, derived from OSV's
+// Affected[].Ranges[].Events.Fixed records (per
+// https://ossf.github.io/osv-schema/).
 //
-// OSV records the patch metadata in vuln.Affected[].Ranges[].Events.Fixed
-// (per https://ossf.github.io/osv-schema/). When a package was patched in
-// multiple major versions (e.g. backports), Affected may contain several
-// Ranges each with their own Fixed event; we surface all of them so the
-// caller can pick the one matching their current major instead of forcing
-// them into a specific upgrade path.
-func remediationFor(vuln vulnerability, pkgName string) string {
+// When a package was patched in multiple major versions (e.g. backports),
+// multiple ranges each carry their own Fixed event. We surface all of
+// them so the caller — including `snapem upgrade` — can pick the right
+// target for the user's current major instead of forcing a specific
+// upgrade path.
+//
+// Returns (nil, "") when no fix is published.
+func remediationFor(vuln vulnerability, pkgName string) ([]string, string) {
 	fixedSet := make(map[string]struct{})
 	for _, a := range vuln.Affected {
 		if a.Package.Name != "" && !strings.EqualFold(a.Package.Name, pkgName) {
@@ -30,7 +32,7 @@ func remediationFor(vuln vulnerability, pkgName string) string {
 		}
 	}
 	if len(fixedSet) == 0 {
-		return ""
+		return nil, ""
 	}
 
 	versions := make([]string, 0, len(fixedSet))
@@ -40,7 +42,7 @@ func remediationFor(vuln vulnerability, pkgName string) string {
 	sort.Strings(versions)
 
 	if len(versions) == 1 {
-		return "Fixed in " + versions[0]
+		return versions, "Fixed in " + versions[0]
 	}
-	return "Fixed in " + strings.Join(versions, ", ")
+	return versions, "Fixed in " + strings.Join(versions, ", ")
 }

@@ -23,7 +23,14 @@ import (
 // schemaVersion is bumped whenever the Finding shape or this Entry layout
 // changes. Old files with a different schemaVersion are treated as a miss
 // rather than failing the read.
-const schemaVersion = 1
+//
+// History:
+//
+//	1 — initial cache shape (v0.3.0)
+//	2 — Finding gained FixedVersions field; old entries returning without
+//	    it would make `snapem upgrade` show "no fix info" for 24h after a
+//	    user upgrades snapem, so we invalidate on bump (v0.4.0+)
+const schemaVersion = 2
 
 // Entry is what we persist per (scanner, ecosystem, name, version) tuple.
 type Entry struct {

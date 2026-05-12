@@ -1,13 +1,17 @@
 package osv
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+)
 
 func TestRemediationFor(t *testing.T) {
 	tests := []struct {
-		name string
-		vuln vulnerability
-		pkg  string
-		want string
+		name          string
+		vuln          vulnerability
+		pkg           string
+		want          string
+		wantVersions  []string
 	}{
 		{
 			name: "single range with fixed event",
@@ -119,10 +123,33 @@ func TestRemediationFor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := remediationFor(tt.vuln, tt.pkg)
+			gotVersions, got := remediationFor(tt.vuln, tt.pkg)
 			if got != tt.want {
-				t.Errorf("got %q, want %q", got, tt.want)
+				t.Errorf("human string: got %q, want %q", got, tt.want)
+			}
+			if tt.wantVersions != nil {
+				if !reflect.DeepEqual(gotVersions, tt.wantVersions) {
+					t.Errorf("structured versions: got %v, want %v", gotVersions, tt.wantVersions)
+				}
 			}
 		})
+	}
+}
+
+func TestRemediationFor_StructuredVersionsAreParseable(t *testing.T) {
+	v := vulnerability{
+		Affected: []affected{{
+			Package: packageInfo{Name: "lodash"},
+			Ranges: []rangeInfo{
+				{Events: []event{{Fixed: "0.2.4"}}},
+				{Events: []event{{Fixed: "1.2.6"}}},
+				{Events: []event{{Fixed: "1.2.6"}}}, // dup
+			},
+		}},
+	}
+	versions, _ := remediationFor(v, "lodash")
+	want := []string{"0.2.4", "1.2.6"}
+	if !reflect.DeepEqual(versions, want) {
+		t.Errorf("got %v, want %v (sorted + deduped)", versions, want)
 	}
 }
