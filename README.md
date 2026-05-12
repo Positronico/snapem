@@ -53,7 +53,7 @@ sudo cp bin/snapem /usr/local/bin/
 
 ### Prerequisites
 
-snapem requires Apple's container runtime:
+snapem requires Apple's container runtime (CLI v0.9.0 or newer):
 
 ```bash
 # Install the container CLI
@@ -68,6 +68,9 @@ Verify it's working:
 ```bash
 container run --rm node:lts-slim node --version
 ```
+
+The first run pulls `node:lts-slim` (~250 MB extracted on Apple Silicon)
+and starts the container service; subsequent runs are immediate.
 
 ## Quick Start
 
@@ -372,7 +375,7 @@ These flags work with any command:
 The container CLI isn't installed or running:
 
 ```bash
-brew install --cask container
+brew install container
 container system start
 ```
 
@@ -405,7 +408,7 @@ snapem exec -- node --version
 
 ### First run is slow
 
-The first run downloads container images (~50MB). Subsequent runs use cached images and start instantly.
+The first run pulls the container image (~250 MB extracted on Apple Silicon for `node:lts-slim`) and starts the container service. Subsequent runs use cached images and start in a few seconds.
 
 ### Port not accessible
 
@@ -462,11 +465,13 @@ This means:
 | Malicious install scripts | ✅ Container isolation |
 | Typosquatting (e.g., `loddash`) | ✅ Socket.dev detection |
 | Known CVEs | ✅ Google OSV scanning |
-| Data exfiltration | ✅ Optional network isolation |
-| Credential theft | ✅ No access to host credentials |
+| Data exfiltration | ✅ Optional network isolation (`--no-network`) |
+| Host credential theft (SSH, AWS, Keychain) | ✅ Not mounted into the container |
 
 ## What snapem Does NOT Protect Against
 
+- **Your project directory.** It's mounted read-write at `/app` so npm can write `node_modules`. A malicious package can read and modify your source.
+- **Environment variables you forward.** Anything you list under `container.environment` in `snapem.yaml` is visible to every package in the install — don't put registry tokens (`NPM_TOKEN`, etc.) there unless you trust the entire dependency tree.
 - Vulnerabilities in your own code
 - Runtime attacks in production
 - Compromised npm registry
