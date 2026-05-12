@@ -2,7 +2,7 @@
 
 All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
-## Unreleased
+## v0.3.0 — 2026-05-12
 
 ### Added
 - `snapem cache info` and `snapem cache clear` subcommands. File-based scan cache (one JSON per `(scanner, ecosystem, name, version)` under `os.UserCacheDir()/snapem/`, schema-versioned, TTL from `scanning.cache.ttl`).
