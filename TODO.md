@@ -8,11 +8,7 @@ Items are ordered by priority within each tier. Anything in **Out of scope** has
 
 ## P1 — known correctness or trust gaps
 
-These are things we *claim* the product does but haven't fully proven, or where the current behavior could surprise a user in a security-relevant way.
-
-- [ ] **Automated E2E test against Apple `container` runtime.** Build-tag gated (`//go:build container_e2e`) so it doesn't run in CI unless the service is up. Boots a container, mounts a real fixture project, runs `npm install`, asserts the install succeeded and the container was removed. Manual smoke pass was completed during v0.3.0 prep (install, run-script, exec, `--no-network` isolation all verified live); this item tracks turning that into a repeatable script.
-- [ ] **`snapem doctor` subcommand.** Inspects the runtime: `container system status`, presence of `SOCKET_API_TOKEN`, cache directory writable, network reachability of OSV and Socket. Prints a checklist so new users diagnose their own setup.
-- [ ] **Read-only project mount option.** `snapem exec` and `snapem run` currently mount the project read-write. A `--read-only` flag (or `container.readonly: true` in config) would let users opt into a stronger isolation posture for scripts that shouldn't write back. Volume option goes from `path:/app` to `path:/app:ro`.
+Nothing currently open. All previous P1 items shipped to `main` as part of the post-v0.3.0 batch (build-tag E2E suite, `--read-only` flag on `exec`/`run`, `snapem doctor`). See [CHANGELOG.md](CHANGELOG.md) `Unreleased` section.
 
 ## P2 — features in scope, not yet built
 
