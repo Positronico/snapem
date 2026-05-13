@@ -84,6 +84,19 @@ type ContainerConfig struct {
 	Image       map[string]string `mapstructure:"image"`       // "npm" -> "node:lts-slim"
 	Network     string            `mapstructure:"network"`     // "host", "none"
 	Environment []string          `mapstructure:"environment"` // env vars to pass through
+
+	// MountNpmrc enables the read-only mount of the host's ~/.npmrc at
+	// /root/.npmrc inside the container. Needed for installs from a
+	// private registry — npm/yarn/pnpm all read /root/.npmrc when the
+	// process runs as root, which is the case in every default image.
+	//
+	// Security tradeoff: when enabled, a malicious post-install script
+	// can read your npmrc and exfiltrate any auth tokens in it. This
+	// is the same exposure you accept by running `npm install`
+	// directly. Disable (false) to keep credentials out of the
+	// container; installs from private registries will then fail with
+	// a 401/403 from the registry. See SECURITY.md.
+	MountNpmrc bool `mapstructure:"mount_npmrc"`
 }
 
 // UIConfig holds UI settings

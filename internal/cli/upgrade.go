@@ -164,13 +164,15 @@ func computeUpgradePlan(ctx context.Context, cfg *config.Config, display *ui.UI,
 		display.Warning("No scanners available")
 		return &upgradePlan{}, nil
 	}
+	prog := display.NewProgress()
 	result, err := orch.ScanWithProgress(ctx, packages, func(name string, done bool) {
 		if done {
-			display.ScannerStatus(name, "complete", false)
+			prog.Done(name)
 		} else {
-			display.ScannerStatus(name, "scanning...", true)
+			prog.Add(name)
 		}
 	})
+	prog.Stop()
 	if err != nil {
 		return nil, errors.ScannerError("security", err)
 	}
@@ -296,6 +298,11 @@ func applyUpgrades(ctx context.Context, cfg *config.Config, display *ui.UI, proj
 	installArgs := mgr.InstallCommand(specs, false)
 	networkMode := container.NetworkMode(cfg.Container.Network)
 	opts := pkgmanager.BuildContainerOptions(mgr, projectDir, networkMode, installArgs)
+	if cfg.Container.MountNpmrc {
+		if pkgmanager.AddPrivateRegistryMount(opts) {
+			display.Verbose("Mounted ~/.npmrc into the container (private registry support).")
+		}
+	}
 
 	runtime := container.NewAppleRuntime()
 	if !runtime.IsAvailable() {

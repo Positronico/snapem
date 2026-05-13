@@ -52,6 +52,7 @@ func Defaults() *Config {
 			},
 			Network:     "host",
 			Environment: []string{},
+			MountNpmrc:  true,
 		},
 		UI: UIConfig{
 			Color:   true,
@@ -87,6 +88,7 @@ func RegisterDefaults(v *viper.Viper) {
 	v.SetDefault("container.image.pnpm", d.Container.Image["pnpm"])
 	v.SetDefault("container.image.yarn", d.Container.Image["yarn"])
 	v.SetDefault("container.network", d.Container.Network)
+	v.SetDefault("container.mount_npmrc", d.Container.MountNpmrc)
 
 	v.SetDefault("ui.color", d.UI.Color)
 	v.SetDefault("ui.verbose", d.UI.Verbose)

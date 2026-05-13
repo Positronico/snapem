@@ -130,6 +130,14 @@ container:
   environment:
     - NODE_ENV
 
+  # Mount ~/.npmrc read-only into the container at /root/.npmrc when it
+  # exists. Required for installs from a private registry (npm, yarn
+  # classic, and pnpm all read /root/.npmrc when running as root). Set
+  # to false if your npmrc contains auth tokens you don't want exposed
+  # to install scripts — installs from private registries will then
+  # fail with 401/403. See SECURITY.md for the tradeoff.
+  mount_npmrc: true
+
 # UI settings
 ui:
   color: true

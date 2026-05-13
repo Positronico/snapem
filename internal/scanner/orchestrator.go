@@ -16,9 +16,18 @@ import (
 
 // ProgressFunc is called when an individual scanner starts (done=false) and
 // finishes (done=true). It may be nil.
+// ProgressFunc receives per-scanner lifecycle events: called once with
+// done=false when a scanner starts and once with done=true when it
+// completes (successfully or not). The UI layer uses this to update
+// the user-visible "scanning..." → "complete" status. Nil is allowed —
+// the orchestrator silently drops events when no callback is supplied.
 type ProgressFunc func(scanner string, done bool)
 
-// Orchestrator coordinates multiple security scanners.
+// Orchestrator owns the configured set of Scanners and runs them in
+// parallel against a package list. It applies allowlist / blocklist
+// transforms before delegating, aggregates the results, and is the
+// single entry point used by `snapem scan`, `install`, and `upgrade`
+// so all three share identical scan semantics.
 type Orchestrator struct {
 	scanners []Scanner
 	config   *config.Config

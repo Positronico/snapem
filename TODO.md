@@ -21,20 +21,20 @@ Nothing currently open. All previous P1 items shipped to `main` as part of the p
 
 ## P3 — polish and internal quality
 
-- [ ] **Progress indicators.** Spinner during OSV/Socket fan-out. Cache hits make most scans fast now, but a 1500-dep cold scan still takes a few seconds.
+- [x] **Progress indicators.** Animated braille spinner per scanner during fan-out (`scan`, `install`, `upgrade`), 100ms multi-line redraw. Non-TTY/quiet fallback to the prior static lines.
 - [ ] **macOS code signing / notarization.** Not blocking for the brew-first install path: Homebrew downloads via `curl` from a shell, so the bottle binary doesn't get the `com.apple.quarantine` xattr and runs without a Gatekeeper prompt. Becomes important if users download tarballs directly from the GitHub releases page in a browser, if we ship a `.pkg` installer, or if a corporate macOS fleet enforces "signed binaries only". Needs an Apple Developer account + signing cert (owner action) before this can be automated. **Blocked on user when prioritized.**
-- [ ] **Godoc on exported APIs.** `internal/scanner.Scanner`, `internal/scanner/cache.Store`, `internal/manifest.Parser` are the highest-value ones.
+- [x] **Godoc on exported APIs.** Scanner interface, Orchestrator, manifest.Parser/Package/Manifest documented. cache.Store was already covered.
 - [ ] **Structured logging (slog).** Replace ad-hoc `fmt.Fprintln(os.Stderr, ...)` calls with `slog`. Lets verbose mode produce machine-parseable output.
 - [ ] **Context cancellation audit.** Ctrl+C should propagate cleanly through every blocking operation. Most paths use `ctx` already; we haven't formally verified every fan-out goroutine respects cancel.
 - [ ] **Scan duration / cache hit metrics.** Verbose-mode summary line: "scanned 482 packages (379 cached, 103 fresh) in 0.6s".
-- [ ] **Security best practices guide.** Document threat model, what isolation does and doesn't cover, how to choose a policy.
-- [ ] **Contributing guide.** Project layout, how to add a scanner / package manager / lockfile parser.
+- [x] **Security best practices guide.** Shipped as SECURITY.md — threat model, prevents/doesn't-prevent table, policy choice guidance, operational hardening.
+- [x] **Contributing guide.** Shipped as CONTRIBUTING.md — project layout, the loop, how to add a scanner / package manager / lockfile parser, E2E test run instructions.
 
 ## P4 — small-scope helpers worth doing eventually
 
 - [ ] **Pre-commit hook helper.** `snapem install pre-commit-hook` drops in a `.git/hooks/pre-commit` that runs `snapem scan`. Lightweight, useful.
 - [ ] **Manifest parser for npm v1 lockfile** (npm 6). Niche in 2026 but a one-screen function.
-- [ ] **Private registry support.** Forward `~/.npmrc` into the container as read-only, or honor `NPM_CONFIG_REGISTRY` from config. Currently impossible to install from a private registry inside the sandbox.
+- [x] **Private registry support.** `~/.npmrc` auto-mounted read-only at `/root/.npmrc` when present (npm/yarn/pnpm compatible). `container.mount_npmrc: false` opts out. Credential-exposure tradeoff documented in SECURITY.md.
 - [ ] **Audit log file.** `~/.local/share/snapem/audit.log` records every `--force` / `--skip-scan` invocation with timestamp and package list. Helps post-incident review.
 
 ## P5 — larger features that need design discussion before code
