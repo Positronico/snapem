@@ -98,11 +98,7 @@ func runRun(cmd *cobra.Command, args []string) error {
 	}
 
 	opts := pkgmanager.BuildContainerOptionsRO(mgr, projectDir, networkMode, runCommand, runReadOnly)
-	if cfg.Container.MountNpmrc {
-		if pkgmanager.AddPrivateRegistryMount(opts) {
-			display.Verbose("Mounted ~/.npmrc into the container (private registry support).")
-		}
-	}
+	mountPrivateRegistryIfEnabled(opts, cfg, display)
 
 	// Port handling: explicit -p flags take precedence
 	if len(runPublishPorts) > 0 {

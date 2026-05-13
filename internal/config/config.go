@@ -86,16 +86,17 @@ type ContainerConfig struct {
 	Environment []string          `mapstructure:"environment"` // env vars to pass through
 
 	// MountNpmrc enables the read-only mount of the host's ~/.npmrc at
-	// /root/.npmrc inside the container. Needed for installs from a
+	// /root/.npmrc inside the container. Required for installs from a
 	// private registry — npm/yarn/pnpm all read /root/.npmrc when the
 	// process runs as root, which is the case in every default image.
 	//
-	// Security tradeoff: when enabled, a malicious post-install script
-	// can read your npmrc and exfiltrate any auth tokens in it. This
-	// is the same exposure you accept by running `npm install`
-	// directly. Disable (false) to keep credentials out of the
-	// container; installs from private registries will then fail with
-	// a 401/403 from the registry. See SECURITY.md.
+	// Default is false: this is opt-in. Enabling exposes whatever auth
+	// tokens live in ~/.npmrc to every install script that runs in the
+	// container — same exposure as bare `npm install`, but a real
+	// regression against snapem's default posture of withholding
+	// credentials from install scripts. Snapem prints a per-invocation
+	// warning whenever this mount is active so the exposure is never
+	// silent. See SECURITY.md.
 	MountNpmrc bool `mapstructure:"mount_npmrc"`
 }
 

@@ -130,13 +130,17 @@ container:
   environment:
     - NODE_ENV
 
-  # Mount ~/.npmrc read-only into the container at /root/.npmrc when it
-  # exists. Required for installs from a private registry (npm, yarn
-  # classic, and pnpm all read /root/.npmrc when running as root). Set
-  # to false if your npmrc contains auth tokens you don't want exposed
-  # to install scripts — installs from private registries will then
-  # fail with 401/403. See SECURITY.md for the tradeoff.
-  mount_npmrc: true
+  # Mount ~/.npmrc read-only at /root/.npmrc inside the container.
+  # OPT-IN. Required for installs from a private registry (npm, yarn
+  # classic, and pnpm all read /root/.npmrc when running as root).
+  #
+  # SECURITY WARNING: enabling this exposes any auth tokens in your
+  # npmrc to every install script that runs in the container — the
+  # same exposure as 'npm install' directly. Snapem prints a warning
+  # on every command when this mount is active. Keep it disabled
+  # unless you actually need a private registry, then read SECURITY.md
+  # to understand the tradeoff before flipping it on.
+  mount_npmrc: false
 
 # UI settings
 ui:

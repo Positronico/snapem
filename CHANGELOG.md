@@ -6,7 +6,7 @@ All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
 ### Added
 - Animated spinner during scanner fan-out (`snapem scan`, `install`, `upgrade`). Multi-line redraw with braille spinner frames at 100ms. Non-TTY / `--quiet` / piped output falls back to the prior static `scanning... → complete` lines — no flicker, no escape sequences leaking into CI logs.
-- Private registry support. `~/.npmrc` is mounted read-only into the container at `/root/.npmrc` when the file exists, so installs from private registries (GitHub Packages, Verdaccio, npm Enterprise, etc.) work transparently. New `container.mount_npmrc` config (default `true`); set to `false` to keep credentials out of install scripts. Credential-exposure tradeoff documented in SECURITY.md.
+- Private registry support. New `container.mount_npmrc` config (**default `false`**, opt-in). When set to `true`, snapem bind-mounts `~/.npmrc` read-only at `/root/.npmrc` so installs from private registries (GitHub Packages, Verdaccio, npm Enterprise, etc.) work. A yellow warning prints on every install/run/exec/upgrade while the mount is active so the credential exposure is never silent. Credential-exposure tradeoff documented in SECURITY.md.
 - `SECURITY.md` — threat model, what isolation does and doesn't cover, how to choose a policy. Concrete table of attacks snapem prevents vs. accepts.
 - `CONTRIBUTING.md` — project layout, the loop, how to add a scanner / package manager / lockfile parser, how to run E2E tests.
 

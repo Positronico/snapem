@@ -52,7 +52,14 @@ func Defaults() *Config {
 			},
 			Network:     "host",
 			Environment: []string{},
-			MountNpmrc:  true,
+			// MountNpmrc is opt-in. Enabling it exposes whatever auth
+			// tokens live in ~/.npmrc to every install script that
+			// runs in the container — the same exposure as bare
+			// `npm install`, but a regression vs. snapem's default
+			// posture of withholding credentials from install scripts.
+			// Users with private registries flip this to true after
+			// reading SECURITY.md.
+			MountNpmrc: false,
 		},
 		UI: UIConfig{
 			Color:   true,

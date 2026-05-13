@@ -298,11 +298,7 @@ func applyUpgrades(ctx context.Context, cfg *config.Config, display *ui.UI, proj
 	installArgs := mgr.InstallCommand(specs, false)
 	networkMode := container.NetworkMode(cfg.Container.Network)
 	opts := pkgmanager.BuildContainerOptions(mgr, projectDir, networkMode, installArgs)
-	if cfg.Container.MountNpmrc {
-		if pkgmanager.AddPrivateRegistryMount(opts) {
-			display.Verbose("Mounted ~/.npmrc into the container (private registry support).")
-		}
-	}
+	mountPrivateRegistryIfEnabled(opts, cfg, display)
 
 	runtime := container.NewAppleRuntime()
 	if !runtime.IsAvailable() {

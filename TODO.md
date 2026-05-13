@@ -34,7 +34,7 @@ Nothing currently open. All previous P1 items shipped to `main` as part of the p
 
 - [ ] **Pre-commit hook helper.** `snapem install pre-commit-hook` drops in a `.git/hooks/pre-commit` that runs `snapem scan`. Lightweight, useful.
 - [ ] **Manifest parser for npm v1 lockfile** (npm 6). Niche in 2026 but a one-screen function.
-- [x] **Private registry support.** `~/.npmrc` auto-mounted read-only at `/root/.npmrc` when present (npm/yarn/pnpm compatible). `container.mount_npmrc: false` opts out. Credential-exposure tradeoff documented in SECURITY.md.
+- [x] **Private registry support.** Opt-in mount of `~/.npmrc` read-only at `/root/.npmrc` via `container.mount_npmrc: true` (default off). Yellow warning per command while active. Credential-exposure tradeoff documented in SECURITY.md.
 - [ ] **Audit log file.** `~/.local/share/snapem/audit.log` records every `--force` / `--skip-scan` invocation with timestamp and package list. Helps post-incident review.
 
 ## P5 — larger features that need design discussion before code
