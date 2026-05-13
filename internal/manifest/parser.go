@@ -9,19 +9,27 @@ import (
 	"github.com/positronico/snapem/internal/errors"
 )
 
-// Package represents a dependency package
+// Package is the canonical (name, version, ecosystem) tuple snapem
+// passes to scanners. Ecosystem is "npm" for everything in the
+// JavaScript world today (npm/bun/pnpm/yarn all share the registry).
+// The field exists so future ecosystems (PyPI, RubyGems) can flow
+// through the same Scanner interface without a breaking change.
 type Package struct {
 	Name      string `json:"name"`
 	Version   string `json:"version"`
 	Ecosystem string `json:"ecosystem"`
 }
 
-// PURL returns the Package URL for this package
+// PURL returns the Package URL form used by Socket.dev and OSV
+// batch endpoints. Format: pkg:<ecosystem>/<name>@<version>.
+// See https://github.com/package-url/purl-spec for the spec.
 func (p *Package) PURL() string {
 	return "pkg:" + p.Ecosystem + "/" + p.Name + "@" + p.Version
 }
 
-// Manifest represents a parsed package.json
+// Manifest is a parsed package.json. Only the fields snapem actually
+// uses are populated; arbitrary npm metadata (description, keywords,
+// repository, etc.) is intentionally discarded.
 type Manifest struct {
 	Name            string            `json:"name"`
 	Version         string            `json:"version"`
@@ -81,12 +89,26 @@ type PackageLockPkg struct {
 	Dev       bool   `json:"dev"`
 }
 
-// Parser handles manifest file parsing
+// Parser reads npm-ecosystem dependency manifests rooted at a project
+// directory. It dispatches across the lockfile formats snapem supports
+// (npm package-lock.json v2+, bun.lock, pnpm-lock.yaml, yarn.lock) and
+// falls back to the declared dependencies in package.json when no
+// lockfile is present.
+//
+// Parser methods are safe to call from a single goroutine. The
+// underlying filesystem reads do not lock; concurrent installers
+// rewriting the lockfile mid-read will produce a parse error which
+// callers should surface to the user.
+//
+// Workspace-aware methods (ResolveWorkspaceMembers,
+// GetWorkspaceDirectDeps) consider members declared in either
+// package.json's `workspaces` field or pnpm-workspace.yaml.
 type Parser struct {
 	projectDir string
 }
 
-// NewParser creates a new manifest parser for the given directory
+// NewParser returns a Parser rooted at projectDir. The directory is
+// not validated until a method that touches the filesystem is called.
 func NewParser(projectDir string) *Parser {
 	return &Parser{
 		projectDir: projectDir,

@@ -2,6 +2,17 @@
 
 All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
+## Unreleased
+
+### Added
+- Animated spinner during scanner fan-out (`snapem scan`, `install`, `upgrade`). Multi-line redraw with braille spinner frames at 100ms. Non-TTY / `--quiet` / piped output falls back to the prior static `scanning... → complete` lines — no flicker, no escape sequences leaking into CI logs.
+- Private registry support. `~/.npmrc` is mounted read-only into the container at `/root/.npmrc` when the file exists, so installs from private registries (GitHub Packages, Verdaccio, npm Enterprise, etc.) work transparently. New `container.mount_npmrc` config (default `true`); set to `false` to keep credentials out of install scripts. Credential-exposure tradeoff documented in SECURITY.md.
+- `SECURITY.md` — threat model, what isolation does and doesn't cover, how to choose a policy. Concrete table of attacks snapem prevents vs. accepts.
+- `CONTRIBUTING.md` — project layout, the loop, how to add a scanner / package manager / lockfile parser, how to run E2E tests.
+
+### Changed
+- Godoc passes on `internal/scanner.Scanner`, `internal/scanner.Orchestrator`, `internal/manifest.Parser`, `internal/manifest.Package`, `internal/manifest.Manifest`. Cache.Store was already documented; left as-is.
+
 ## v0.7.0 — 2026-05-12
 
 ### Added

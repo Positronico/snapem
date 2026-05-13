@@ -98,6 +98,11 @@ func runInstall(cmd *cobra.Command, args []string) error {
 	installCmd := mgr.InstallCommand(args, saveDev)
 	networkMode := container.NetworkMode(cfg.Container.Network)
 	opts := pkgmanager.BuildContainerOptions(mgr, projectDir, networkMode, installCmd)
+	if cfg.Container.MountNpmrc {
+		if pkgmanager.AddPrivateRegistryMount(opts) {
+			display.Verbose("Mounted ~/.npmrc into the container (private registry support).")
+		}
+	}
 
 	// Run in container (unless disabled)
 	if cfg.Container.Enabled && !noContainer {
@@ -172,13 +177,15 @@ func runSecurityScan(ctx context.Context, cfg *config.Config, display *ui.UI, pa
 		return nil
 	}
 
+	prog := display.NewProgress()
 	result, err := orch.ScanWithProgress(ctx, packages, func(name string, done bool) {
 		if done {
-			display.ScannerStatus(name, "complete", false)
+			prog.Done(name)
 		} else {
-			display.ScannerStatus(name, "scanning...", true)
+			prog.Add(name)
 		}
 	})
+	prog.Stop()
 
 	if err != nil {
 		return errors.ScannerError("security", err)

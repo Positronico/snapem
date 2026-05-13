@@ -98,6 +98,11 @@ func runExec(cmd *cobra.Command, args []string) error {
 		},
 		Environment: make(map[string]string),
 	}
+	if cfg.Container.MountNpmrc {
+		if pkgmanager.AddPrivateRegistryMount(opts) {
+			display.Verbose("Mounted ~/.npmrc into the container (private registry support).")
+		}
+	}
 
 	// Run in container (unless disabled)
 	if cfg.Container.Enabled && !noContainer {

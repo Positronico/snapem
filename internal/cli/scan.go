@@ -140,13 +140,15 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if machineOutput {
 		result, err = orch.Scan(ctx, packages)
 	} else {
+		prog := display.NewProgress()
 		result, err = orch.ScanWithProgress(ctx, packages, func(name string, done bool) {
 			if done {
-				display.ScannerStatus(name, "complete", false)
+				prog.Done(name)
 			} else {
-				display.ScannerStatus(name, "scanning...", true)
+				prog.Add(name)
 			}
 		})
+		prog.Stop()
 	}
 
 	if err != nil {
