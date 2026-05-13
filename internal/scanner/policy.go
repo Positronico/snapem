@@ -42,9 +42,9 @@ func EvaluatePolicy(cfg *config.Config, result *AggregatedResult) PolicyDecision
 func actionFor(cfg *config.Config, f Finding) string {
 	switch f.Type {
 	case FindingTypeMalware, FindingTypeTyposquat:
-		return cfg.Scanning.Policy.Malware
+		return cfg.GetMalwareActionForPackage(f.Package)
 	case FindingTypeCVE:
-		return cfg.GetCVEAction(string(f.Severity))
+		return cfg.GetCVEActionForPackage(f.Package, string(f.Severity))
 	}
 	// License, maintainer, quality findings are advisory by default — not
 	// driven by a policy key today. Treat as ignore so they show up but

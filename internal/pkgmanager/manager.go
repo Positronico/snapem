@@ -183,11 +183,67 @@ func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
+// Yarn implements the Manager interface for yarn (classic v1 and Berry
+// via corepack). Same corepack pattern as PNPM — node:lts-slim already
+// ships corepack which can materialize whichever yarn is pinned by the
+// project's packageManager field or just fetch the latest.
+type Yarn struct {
+	image string
+}
+
+// NewYarn creates a new yarn manager.
+func NewYarn(image string) *Yarn {
+	if image == "" {
+		image = "node:lts-slim"
+	}
+	return &Yarn{image: image}
+}
+
+// Name returns "yarn".
+func (y *Yarn) Name() string { return "yarn" }
+
+// InstallCommand returns the corepack-enabled yarn install command.
+// yarn install with no args installs everything; yarn add <pkg> for
+// specific packages. `-D` for dev deps maps to `--dev` in classic
+// yarn and is a no-op flag in Berry (which uses --dev too).
+func (y *Yarn) InstallCommand(packages []string, saveDev bool) []string {
+	var cmd string
+	if len(packages) == 0 {
+		cmd = "corepack yarn install"
+	} else {
+		cmd = "corepack yarn add"
+		if saveDev {
+			cmd += " --dev"
+		}
+		for _, pkg := range packages {
+			cmd += " " + shellQuote(pkg)
+		}
+	}
+	return []string{"sh", "-c", "corepack enable >/dev/null 2>&1; " + cmd}
+}
+
+// RunCommand returns the corepack-enabled yarn run command, wrapped so
+// Ctrl+C cleanly exits when yarn runs as PID 1.
+func (y *Yarn) RunCommand(script string, args []string) []string {
+	cmdLine := "corepack yarn run " + shellQuote(script)
+	for _, a := range args {
+		cmdLine += " " + shellQuote(a)
+	}
+	return []string{"sh", "-c", "trap 'exit 0' INT TERM; corepack enable >/dev/null 2>&1; " + cmdLine}
+}
+
+// ExecCommand passes the user's command through unchanged.
+func (y *Yarn) ExecCommand(command []string) []string { return command }
+
+// Image returns the yarn container image.
+func (y *Yarn) Image() string { return y.image }
+
 // Detect determines which package manager to use based on the project
 func Detect(projectDir string, preferred string, images map[string]string) Manager {
 	npmImage := images["npm"]
 	bunImage := images["bun"]
 	pnpmImage := images["pnpm"]
+	yarnImage := images["yarn"]
 
 	// If user specified a preference, use it
 	switch preferred {
@@ -197,6 +253,8 @@ func Detect(projectDir string, preferred string, images map[string]string) Manag
 		return NewBun(bunImage)
 	case "pnpm":
 		return NewPNPM(pnpmImage)
+	case "yarn":
+		return NewYarn(yarnImage)
 	}
 
 	// Auto-detect based on lockfiles. Prefer bun.lock (text) since it's
@@ -208,6 +266,9 @@ func Detect(projectDir string, preferred string, images map[string]string) Manag
 	}
 	if parser.HasPnpmLockfile() {
 		return NewPNPM(pnpmImage)
+	}
+	if parser.HasYarnLockfile() {
+		return NewYarn(yarnImage)
 	}
 
 	// Default to npm

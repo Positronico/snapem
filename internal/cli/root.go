@@ -47,7 +47,7 @@ Examples:
 // fell back to npm; users would not learn pnpm was unsupported until they
 // looked at their lockfile and asked why nothing matched.
 func validateGlobalFlags(cmd *cobra.Command, args []string) error {
-	return validateEnum("package-manager", pkgMgr, []string{"", "auto", "npm", "bun", "pnpm"})
+	return validateEnum("package-manager", pkgMgr, []string{"", "auto", "npm", "bun", "pnpm", "yarn"})
 }
 
 // Execute runs the root command

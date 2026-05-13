@@ -23,6 +23,43 @@ func resultWith(findings ...Finding) *AggregatedResult {
 	}
 }
 
+func TestEvaluatePolicy_PerPackageOverrides(t *testing.T) {
+	cfg := policyConfig("block", map[string]string{
+		"high":   "block",
+		"medium": "block",
+	})
+	cfg.Scanning.Policy.Packages = map[string]config.PackagePolicyOverride{
+		"lodash": {
+			CVE: map[string]string{"high": "warn"}, // accept high lodash findings
+		},
+	}
+
+	// lodash high finding → warn (per-package override)
+	lodashResult := resultWith(Finding{
+		Type: FindingTypeCVE, Severity: SeverityHigh, Package: "lodash", Version: "4.0.0",
+	})
+	if d := EvaluatePolicy(cfg, lodashResult); d.ShouldBlock {
+		t.Errorf("lodash high should NOT block (override=warn), got block (reasons=%v)", d.Reasons)
+	}
+
+	// axios high finding → block (falls back to global)
+	axiosResult := resultWith(Finding{
+		Type: FindingTypeCVE, Severity: SeverityHigh, Package: "axios", Version: "0.21.0",
+	})
+	if d := EvaluatePolicy(cfg, axiosResult); !d.ShouldBlock {
+		t.Errorf("axios high should block (no override), got pass")
+	}
+
+	// lodash medium finding → still blocks because the override only
+	// touched cve.high; cve.medium falls back to global "block".
+	lodashMedResult := resultWith(Finding{
+		Type: FindingTypeCVE, Severity: SeverityMedium, Package: "lodash", Version: "4.0.0",
+	})
+	if d := EvaluatePolicy(cfg, lodashMedResult); !d.ShouldBlock {
+		t.Errorf("lodash medium should block (partial override, no medium override), got pass")
+	}
+}
+
 func TestEvaluatePolicy_BlockingCases(t *testing.T) {
 	tests := []struct {
 		name    string

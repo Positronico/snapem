@@ -16,7 +16,7 @@ Nothing currently open. All previous P1 items shipped to `main` as part of the p
 - [ ] **SARIF output format.** Map scanner findings to SARIF v2.1.0 so CI tools (GitHub code scanning, etc.) ingest snapem results directly. Add `snapem scan --format sarif`.
 - [ ] **CI/CD recipe docs.** README section with copy-paste GitHub Actions / GitLab CI snippets. Likely paired with the SARIF item.
 - [ ] **Per-package policy actions.** Today policy is global by severity. Some users want `lodash` warnings to be informational while `axios` issues block. Schema sketch: `policy.packages: { "axios": { cve: { high: "block" } } }` overrides.
-- [ ] **`snapem upgrade`.** Read findings, propose `npm install <name>@<fixed-version>` for each, optionally apply. Uses the `Remediation` field already populated by OSV enrichment. Major UX win.
+- [x] **`snapem upgrade`** — shipped v0.5.0. Per-package target version that resolves all findings, stays in current major by default, `--major` opts into cross-major bumps.
 - [ ] **Workspace / monorepo support.** Detect npm/pnpm/bun workspaces and scan each member's dependency tree. Currently only the root is scanned.
 
 ## P3 — polish and internal quality

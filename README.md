@@ -306,6 +306,15 @@ scanning:
     blocklist:
       - malicious-package
       - left-pad@1.3.0        # only this release
+
+    # Per-package policy overrides. Set only the keys you want to
+    # override; everything else falls back to the global policy.
+    packages:
+      lodash:
+        cve:
+          high: warn          # we've reviewed every lodash release we use
+      some-other-pkg:
+        malware: warn         # treat malware finding as warning, not block
 ```
 
 ### When You Hit a Block
@@ -322,6 +331,72 @@ snapem install --force
 # Option 3: Fix the issue
 # Update to a patched version of the package
 ```
+
+## CI/CD Integration
+
+`snapem scan` runs in CI without the container runtime; the scan itself is just an HTTP query against OSV and Socket. Pin the version with `brew install positronico/tap/snapem` (or use the released tarball) and call `snapem scan` in your pipeline.
+
+### GitHub Actions
+
+Fail the build on findings, and (optionally) upload the SARIF report to GitHub code scanning so findings appear inline on the PR:
+
+```yaml
+name: dependency scan
+on: [push, pull_request]
+
+jobs:
+  scan:
+    runs-on: macos-latest
+    permissions:
+      security-events: write   # required for code-scanning upload
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install snapem
+        run: brew install positronico/tap/snapem
+
+      - name: Run snapem scan
+        env:
+          SOCKET_API_TOKEN: ${{ secrets.SOCKET_API_TOKEN }}
+        run: snapem scan --format sarif > snapem.sarif
+        # snapem exits non-zero on block-severity findings; this fails
+        # the job. If you'd rather report-only, add `|| true`.
+
+      - name: Upload SARIF to code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snapem.sarif
+```
+
+Without a `SOCKET_API_TOKEN` secret, malware scanning is disabled but CVE scanning via OSV still runs.
+
+### GitLab CI
+
+```yaml
+snapem_scan:
+  image: macos-latest   # or any runner with snapem on PATH
+  script:
+    - brew install positronico/tap/snapem
+    - snapem scan --format sarif > snapem.sarif
+  artifacts:
+    when: always
+    reports:
+      sast: snapem.sarif
+  variables:
+    SOCKET_API_TOKEN: $SOCKET_API_TOKEN   # define in CI/CD settings
+```
+
+### Just fail the build, no SARIF
+
+For pipelines that only want a pass/fail gate:
+
+```bash
+snapem scan --quiet || exit 1
+```
+
+`snapem scan` exits 2 when findings hit block-severity policy.
 
 ## Shell Completions
 

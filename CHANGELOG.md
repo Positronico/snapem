@@ -2,6 +2,15 @@
 
 All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
+## Unreleased
+
+### Added
+- yarn.lock parsing (v1 fully supported; Berry's YAML-ish dialect covered for the common case). `Yarn` Manager runs via corepack inside `node:lts-slim` (same pattern as PNPM). `--package-manager yarn` and auto-detection from `yarn.lock` both work.
+- `snapem scan --format sarif` emits SARIF v2.1.0 with one Run per scanner, deduped Rules keyed by advisory ID, and severity mapped to SARIF level. Ready for `github/codeql-action/upload-sarif@v3` ingest and GitLab's SAST report.
+- `snapem scan --format` flag (text/json/sarif). `--json` kept as a backward-compatible shorthand for `--format json`.
+- Per-package policy overrides: `scanning.policy.packages: { lodash: { cve: { high: warn } } }` overrides global policy for a specific package. Partial overrides fall back to global for unset keys; no override = global behavior preserved.
+- README "CI/CD Integration" section with GitHub Actions + GitLab CI snippets paired with the SARIF support.
+
 ## v0.5.0 — 2026-05-12
 
 ### Added
