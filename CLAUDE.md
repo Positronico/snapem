@@ -161,12 +161,13 @@ Only when the user asks. Process is in [WORKFLOW.md](WORKFLOW.md). Summary:
 2. Wait for `.github/workflows/release.yml` (it runs goreleaser, builds darwin/{arm64,amd64} tarballs, publishes a GitHub release).
 3. `./scripts/update-formula.sh vX.Y.Z` (pushes formula to `Positronico/homebrew-tap`).
 4. Verify with `brew update && brew upgrade snapem && snapem version`. (Don't `brew untap` — refuses if the formula is installed.)
+5. **Clean up merged branches.** Don't leave `claude/*` branches around after a release. Run `git fetch --prune origin && git branch -vv | awk '/: gone]/ {print $1}' | xargs -r git branch -D` to drop locals whose upstream was pruned. If a merged remote branch survived (rebase-merge sometimes keeps it), delete it with `git push origin --delete <branch>`. Full recipe in [WORKFLOW.md](WORKFLOW.md) §5.
 
 The `brews:` block in `.goreleaser.yaml` is currently commented out and the tap is updated by the script in step 3. Either method is fine, but don't change one without the other.
 
 ### Known wrinkles in the release flow
 
-- **`gh pr merge --rebase` desyncs your local main.** Server rewrites commit hashes; gh then tries a local pull that can't fast-forward, fails with `Not possible to fast-forward, aborting`, and aborts before deleting the remote branch. The merge itself succeeded server-side. Recovery: confirm with `gh pr view N --json state`, then `git diff main origin/main` (must be empty), then `git reset --hard origin/main` and `git push origin --delete <branch>`.
+- **`gh pr merge --rebase` desyncs your local main.** Server rewrites commit hashes; gh then tries a local pull that can't fast-forward, fails with `Not possible to fast-forward, aborting`, and aborts before deleting the remote branch. The merge itself succeeded server-side. **Preferred recovery (non-destructive):** `git fetch origin && git checkout main && git merge --ff-only origin/main` — works whenever local main is a clean ancestor of origin/main, which it almost always is when you only touched feature branches. If a follow-up commit already landed on local main on top of the stale base (the v0.7 case where I committed a freeze before realising), don't reset — instead `git stash && git checkout -b <name> origin/main`, replay the change, and push that. The harness will block `git reset --hard` without explicit user authorization, and that's the right call: every desync I've hit has had a non-destructive path.
 - **Goreleaser version pin.** The workflow pins `version: "~> v2"`. Before bumping that to `v3` when it ships, smoke-test locally with `goreleaser release --snapshot --clean` against the actual `.goreleaser.yaml`.
 - **Node 20 runners deprecated.** Action majors must be on Node 24 by 2026-09-16. `actions/checkout@v6`, `actions/setup-go@v6`, `goreleaser/goreleaser-action@v7` are the Node-24-capable lines as of 2026-05.
 

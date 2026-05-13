@@ -22,6 +22,9 @@ go.work.sum
 *.swp
 *.swo
 
+# Claude Code local state (scheduled_tasks.lock, settings.local.json)
+.claude/
+
 # OS
 .DS_Store
 Thumbs.db
