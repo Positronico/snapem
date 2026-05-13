@@ -2,7 +2,7 @@
 
 All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
-## Unreleased
+## v0.6.0 — 2026-05-12
 
 ### Added
 - yarn.lock parsing (v1 fully supported; Berry's YAML-ish dialect covered for the common case). `Yarn` Manager runs via corepack inside `node:lts-slim` (same pattern as PNPM). `--package-manager yarn` and auto-detection from `yarn.lock` both work.
