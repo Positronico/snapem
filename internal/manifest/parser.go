@@ -28,6 +28,41 @@ type Manifest struct {
 	Scripts         map[string]string `json:"scripts"`
 	Dependencies    map[string]string `json:"dependencies"`
 	DevDependencies map[string]string `json:"devDependencies"`
+	// Workspaces are the glob patterns identifying workspace member
+	// directories. npm/bun/yarn store this as an array of strings; yarn
+	// classic also allows an object `{"packages": [...], "nohoist": [...]}`.
+	// Custom JSON unmarshaling on this field handles both shapes.
+	Workspaces WorkspaceList `json:"workspaces"`
+}
+
+// WorkspaceList is the parsed `workspaces` field from package.json. It
+// holds the glob patterns (e.g. `packages/*`); yarn classic's `nohoist`
+// is discarded since it doesn't affect which directories are members.
+type WorkspaceList []string
+
+// UnmarshalJSON accepts either an array of strings (`["packages/*"]`)
+// or the yarn-classic object form (`{"packages": ["packages/*"], ...}`).
+func (w *WorkspaceList) UnmarshalJSON(data []byte) error {
+	trim := strings.TrimSpace(string(data))
+	if trim == "" || trim == "null" {
+		return nil
+	}
+	if trim[0] == '[' {
+		var arr []string
+		if err := json.Unmarshal(data, &arr); err != nil {
+			return err
+		}
+		*w = arr
+		return nil
+	}
+	var obj struct {
+		Packages []string `json:"packages"`
+	}
+	if err := json.Unmarshal(data, &obj); err != nil {
+		return err
+	}
+	*w = obj.Packages
+	return nil
 }
 
 // PackageLock represents a parsed package-lock.json
@@ -180,10 +215,6 @@ func (p *Parser) GetDependenciesWithNotes(includeDev bool) ([]Package, []string,
 
 	// 3) Fallback. Warn the user if we suspect we're missing transitive
 	// data they would expect to be scanned.
-	manifest, err := p.ParseManifest()
-	if err != nil {
-		return nil, notes, err
-	}
 	if p.HasBunLockfile() {
 		notes = append(notes,
 			"Only bun.lockb (binary) found. Transitive scanning is unavailable. "+
@@ -195,22 +226,12 @@ func (p *Parser) GetDependenciesWithNotes(includeDev bool) ([]Package, []string,
 				"transitive packages will not be checked.")
 	}
 
-	var pkgs []Package
-	for name, version := range manifest.Dependencies {
-		pkgs = append(pkgs, Package{
-			Name:      name,
-			Version:   cleanVersion(version),
-			Ecosystem: "npm",
-		})
-	}
-	if includeDev {
-		for name, version := range manifest.DevDependencies {
-			pkgs = append(pkgs, Package{
-				Name:      name,
-				Version:   cleanVersion(version),
-				Ecosystem: "npm",
-			})
-		}
+	// Workspace-aware in the no-lockfile case: a freshly cloned monorepo
+	// has no lockfile yet, but its root package.json is typically empty
+	// of runtime deps. Falling back to root-only would miss every member.
+	pkgs, err := p.GetWorkspaceDirectDeps(includeDev)
+	if err != nil {
+		return nil, notes, err
 	}
 	return pkgs, notes, nil
 }

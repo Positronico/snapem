@@ -121,9 +121,18 @@ type packageUpgrade struct {
 }
 
 func computeUpgradePlan(ctx context.Context, cfg *config.Config, display *ui.UI, parser *manifest.Parser) (*upgradePlan, error) {
-	directDeps, err := parser.GetDirectDependencies(true)
+	// In a workspace/monorepo, root package.json typically declares no
+	// runtime deps — they live in member package.jsons. Without unioning
+	// them in, every member finding would be misclassified as transitive
+	// (and silently dropped from the auto-fixable plan).
+	directDeps, err := parser.GetWorkspaceDirectDeps(true)
 	if err != nil {
 		return nil, errors.ManifestError("failed to read package.json", err)
+	}
+	if isWs, _ := parser.IsWorkspace(); isWs {
+		members, _ := parser.ResolveWorkspaceMembers()
+		display.Info(fmt.Sprintf("Workspace detected — considering %d member%s for direct-dep classification.",
+			len(members), plural(len(members))))
 	}
 	directIndex := make(map[string]string, len(directDeps))
 	for _, d := range directDeps {

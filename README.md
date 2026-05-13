@@ -207,6 +207,8 @@ snapem upgrade --major      # allow major-version bumps when no in-major fix exi
 
 By default, upgrades stay within the package's current major version. Transitive dependencies (not in `package.json` directly) are reported but not auto-fixed — upgrade the parent dependency, run `npm dedupe`, or pin via npm `overrides` / pnpm `resolutions`.
 
+**Workspaces / monorepos.** snapem reads each member's `package.json` (npm/bun/yarn `workspaces`, pnpm's `pnpm-workspace.yaml`) when deciding whether a finding is direct or transitive — so a CVE on a dependency declared in `packages/api/package.json` is auto-fixable from the workspace root.
+
 ### `snapem scan` — Security Scan Only
 
 Scan without installing — useful for auditing existing projects.
