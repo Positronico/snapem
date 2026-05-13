@@ -49,6 +49,19 @@ func TestValidate_AcceptsDefaults(t *testing.T) {
 	}
 }
 
+// MountNpmrc must default to false. Enabling it exposes credentials
+// in ~/.npmrc to install scripts; the default policy of withholding
+// credentials is load-bearing for snapem's security posture. If you
+// change the default to true, you're consciously weakening a default
+// security control — change SECURITY.md and the README's private
+// registry note in the same commit and brace for users finding their
+// tokens in a malicious package's exfiltration logs.
+func TestDefaults_MountNpmrcIsOptIn(t *testing.T) {
+	if Defaults().Container.MountNpmrc {
+		t.Error("Container.MountNpmrc default must be false (opt-in)")
+	}
+}
+
 func TestSplitListEntry(t *testing.T) {
 	cases := []struct {
 		entry        string

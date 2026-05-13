@@ -98,11 +98,7 @@ func runInstall(cmd *cobra.Command, args []string) error {
 	installCmd := mgr.InstallCommand(args, saveDev)
 	networkMode := container.NetworkMode(cfg.Container.Network)
 	opts := pkgmanager.BuildContainerOptions(mgr, projectDir, networkMode, installCmd)
-	if cfg.Container.MountNpmrc {
-		if pkgmanager.AddPrivateRegistryMount(opts) {
-			display.Verbose("Mounted ~/.npmrc into the container (private registry support).")
-		}
-	}
+	mountPrivateRegistryIfEnabled(opts, cfg, display)
 
 	// Run in container (unless disabled)
 	if cfg.Container.Enabled && !noContainer {

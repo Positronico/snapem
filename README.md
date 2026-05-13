@@ -161,7 +161,7 @@ snapem install --no-container   # Run on host (not recommended)
 snapem install --force          # Continue even if threats found
 ```
 
-**Private registries.** If `~/.npmrc` exists, snapem mounts it read-only at `/root/.npmrc` inside the container, so installs from private registries (npm enterprise, GitHub Packages, Verdaccio, etc.) work transparently. To opt out — for example, if your npmrc contains tokens you don't want exposed to install scripts — set `container.mount_npmrc: false` in `snapem.yaml`. See [SECURITY.md](SECURITY.md) for the credential-exposure tradeoff.
+**Private registries.** Off by default. To install from a private registry (GitHub Packages, npm Enterprise, Verdaccio, etc.), set `container.mount_npmrc: true` in `snapem.yaml`. snapem will bind-mount `~/.npmrc` read-only into the container at `/root/.npmrc` and **print a yellow warning on every command** while the mount is active — a malicious install script in any dependency can read those auth tokens, same exposure as bare `npm install`. Read [SECURITY.md](SECURITY.md) before flipping the knob, and prefer enabling it only in the specific projects that need it.
 
 ### `snapem run` — Run Scripts
 
