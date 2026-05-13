@@ -68,7 +68,28 @@ This script will:
 - Update the formula with new version and checksums
 - Commit and push to homebrew-tap
 
-### 5. Verify Release
+### 5. Clean Up Merged Branches
+
+Once the release is published, prune the merged feature/freeze branches. Leftover `claude/*` branches accumulate fast — clean them at every release cut so `git branch -a` stays readable and PR pickers don't surface dead branches.
+
+```bash
+# Drop deleted remote refs from local tracking
+git fetch --prune origin
+
+# Delete any local branches whose remote was merged + pruned
+# (lists "[gone]" upstreams)
+git branch -vv | awk '/: gone]/ {print $1}' | xargs -r git branch -D
+
+# Delete leftover remote branches (rebase-merge keeps them on the server
+# under some gh CLI versions; merge-via-UI does too)
+gh pr list --state merged --limit 20 --json headRefName \
+  --jq '.[].headRefName' \
+  | while read b; do git push origin --delete "$b" 2>/dev/null || true; done
+```
+
+For most releases, the only branch needing cleanup is the freeze branch (`claude/v<VERSION>-freeze*`) — feature PRs get auto-deleted by `gh pr merge` unless the rebase desync fires.
+
+### 6. Verify Release
 
 Check the GitHub release page:
 ```bash
@@ -98,6 +119,10 @@ gh run watch
 
 # Update formula (auto-commits to homebrew-tap)
 ./scripts/update-formula.sh v$VERSION
+
+# Clean up merged branches
+git fetch --prune origin
+git branch -vv | awk '/: gone]/ {print $1}' | xargs -r git branch -D
 
 # Verify
 gh release view v$VERSION
