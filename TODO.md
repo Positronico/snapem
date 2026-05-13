@@ -12,12 +12,12 @@ Nothing currently open. All previous P1 items shipped to `main` as part of the p
 
 ## P2 — features in scope, not yet built
 
-- [ ] **yarn.lock parsing.** Round out the four major npm-compatible package managers. yarn.lock has a custom textual format — `github.com/replicatedhq/yaml` or a hand-rolled parser. yarn v1 differs from Berry (v2+); cover at least v1 since it's still widespread.
-- [ ] **SARIF output format.** Map scanner findings to SARIF v2.1.0 so CI tools (GitHub code scanning, etc.) ingest snapem results directly. Add `snapem scan --format sarif`.
-- [ ] **CI/CD recipe docs.** README section with copy-paste GitHub Actions / GitLab CI snippets. Likely paired with the SARIF item.
-- [ ] **Per-package policy actions.** Today policy is global by severity. Some users want `lodash` warnings to be informational while `axios` issues block. Schema sketch: `policy.packages: { "axios": { cve: { high: "block" } } }` overrides.
+- [x] **yarn.lock parsing.** Shipped v0.6.0. yarn v1 fully supported; Berry's YAML-ish dialect covered for the common case (single resolved version per spec). corepack-driven yarn Manager in the container.
+- [x] **SARIF output format.** Shipped v0.6.0. `snapem scan --format sarif` emits SARIF v2.1.0 with one Run per scanner, deduped Rules, severity→level mapping.
+- [x] **CI/CD recipe docs.** Shipped v0.6.0. README "CI/CD Integration" section with GitHub Actions + GitLab CI snippets.
+- [x] **Per-package policy actions.** Shipped v0.6.0. `scanning.policy.packages: { name: { malware?, cve? } }` with partial-fallback to global for unset keys.
 - [x] **`snapem upgrade`** — shipped v0.5.0. Per-package target version that resolves all findings, stays in current major by default, `--major` opts into cross-major bumps.
-- [ ] **Workspace / monorepo support.** Detect npm/pnpm/bun workspaces and scan each member's dependency tree. Currently only the root is scanned.
+- [x] **Workspace / monorepo support.** `snapem upgrade` and the scan fallback path union workspace member `package.json` deps with root for direct-vs-transitive classification (npm/bun/yarn `workspaces`, pnpm `pnpm-workspace.yaml`). Scan via lockfile was already workspace-aware. `**` glob deferred.
 
 ## P3 — polish and internal quality
 

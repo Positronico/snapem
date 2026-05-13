@@ -2,6 +2,11 @@
 
 All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
+## Unreleased
+
+### Added
+- Workspace / monorepo support. `snapem upgrade` now reads each workspace member's `package.json` (npm/bun/yarn `workspaces` field; pnpm `pnpm-workspace.yaml`) and classifies findings on member-declared dependencies as direct, not transitive — so a lodash CVE in `packages/api/package.json` is now auto-fixable from the root. `scan` was already workspace-aware via the lockfile; the no-lockfile fallback now also unions member deps. Glob support: `packages/*` and exact paths; `**` patterns are silently skipped (rare, deferred). pnpm `!`-exclusions honored.
+
 ## v0.6.0 — 2026-05-12
 
 ### Added
