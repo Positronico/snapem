@@ -2,7 +2,7 @@
 
 All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
-## Unreleased
+## v0.8.0 — 2026-05-12
 
 ### Added
 - Animated spinner during scanner fan-out (`snapem scan`, `install`, `upgrade`). Multi-line redraw with braille spinner frames at 100ms. Non-TTY / `--quiet` / piped output falls back to the prior static `scanning... → complete` lines — no flicker, no escape sequences leaking into CI logs.
