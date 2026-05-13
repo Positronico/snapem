@@ -144,7 +144,17 @@ func (p *Parser) GetDependenciesWithNotes(includeDev bool) ([]Package, []string,
 		return pkgs, notes, nil
 	}
 
-	// 3) npm lockfile v2+ — the well-trodden path.
+	// 3) yarn.lock — yarn v1 covered fully; Berry's YAML-ish dialect
+	// works for the common case (single resolved version per spec).
+	if p.HasYarnLockfile() {
+		pkgs, err := p.ParseYarnLockfile()
+		if err != nil {
+			return nil, notes, err
+		}
+		return pkgs, notes, nil
+	}
+
+	// 4) npm lockfile v2+ — the well-trodden path.
 	lockfile, _ := p.ParseLockfile() // Ignore error, lockfile is optional
 	if lockfile != nil && lockfile.LockfileVersion >= 2 {
 		var pkgs []Package

@@ -44,7 +44,7 @@ const defaultConfigTemplate = `# snapem Configuration
 
 # Package manager settings
 package_manager:
-  # Which package manager to use: auto, npm, bun, pnpm
+  # Which package manager to use: auto, npm, bun, pnpm, yarn
   preferred: auto
 
 # Security scanning settings
@@ -96,6 +96,18 @@ scanning:
     # version blocks only that release.
     blocklist: []
 
+    # Per-package overrides. Use sparingly — they exempt a package from
+    # the project-wide policy. Set only the keys you want to override;
+    # everything else falls back to the global policy above.
+    #
+    # packages:
+    #   lodash:
+    #     cve:
+    #       high: warn   # we've reviewed every lodash release we use
+    #   flagged-but-trusted:
+    #     malware: warn
+    packages: {}
+
 # Container settings
 container:
   enabled: true
@@ -105,6 +117,7 @@ container:
     npm: node:lts-slim
     bun: oven/bun:latest
     pnpm: node:lts-slim       # pnpm uses corepack inside the node image
+    yarn: node:lts-slim       # yarn also uses corepack
 
   # Network mode: host, none
   network: host

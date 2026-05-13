@@ -16,6 +16,7 @@ import (
 
 var (
 	scanJSON    bool
+	scanFormat  string
 	scanInclude string
 )
 
@@ -28,17 +29,27 @@ known vulnerabilities (CVEs) and malicious packages.
 Uses Socket.dev for malware detection and Google OSV for CVE lookup.
 
 Examples:
-  snapem scan                # Scan all dependencies
-  snapem scan --json         # Output results as JSON
-  snapem scan --include dev  # Include devDependencies`,
+  snapem scan                       # Scan all dependencies (text output)
+  snapem scan --format json         # JSON output for scripting
+  snapem scan --format sarif        # SARIF v2.1.0 for CI integration
+  snapem scan --include dev         # Include devDependencies`,
 	PreRunE: func(cmd *cobra.Command, args []string) error {
+		// --json is the legacy shorthand for --format json; honor it so
+		// existing scripts keep working but normalize to scanFormat.
+		if scanJSON && scanFormat == "text" {
+			scanFormat = "json"
+		}
+		if err := validateEnum("format", scanFormat, []string{"text", "json", "sarif"}); err != nil {
+			return err
+		}
 		return validateEnum("include", scanInclude, []string{"all", "prod", "dev"})
 	},
 	RunE: runScan,
 }
 
 func init() {
-	scanCmd.Flags().BoolVar(&scanJSON, "json", false, "output results as JSON")
+	scanCmd.Flags().BoolVar(&scanJSON, "json", false, "shorthand for --format json (kept for backward compat)")
+	scanCmd.Flags().StringVar(&scanFormat, "format", "text", "output format: text, json, sarif")
 	scanCmd.Flags().StringVar(&scanInclude, "include", "all", "which dependencies to scan: all, prod, dev")
 
 	rootCmd.AddCommand(scanCmd)
@@ -70,13 +81,17 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return errors.ManifestError("no package.json found", nil)
 	}
 
-	if !scanJSON {
+	// "Machine" output suppresses the human progress UI so consumers get
+	// pure JSON / SARIF on stdout.
+	machineOutput := scanFormat != "text"
+
+	if !machineOutput {
 		display.ScanningHeader()
 	}
 
 	// Check for Socket API token
 	if !cfg.HasSocketToken() && cfg.Scanning.Socket.Enabled {
-		if !scanJSON {
+		if !machineOutput {
 			if !display.PromptUnsecure() {
 				return errors.UserAbortError()
 			}
@@ -92,22 +107,21 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return errors.ManifestError("failed to parse dependencies", err)
 	}
-	if !scanJSON {
+	if !machineOutput {
 		for _, n := range notes {
 			display.Warning(n)
 		}
 	}
 
 	if len(packages) == 0 {
-		if scanJSON {
-			outputJSONResult(&scanner.AggregatedResult{})
-		} else {
-			display.Info("No packages to scan")
+		if machineOutput {
+			return emitMachineResult(scanFormat, &scanner.AggregatedResult{})
 		}
+		display.Info("No packages to scan")
 		return nil
 	}
 
-	if !scanJSON {
+	if !machineOutput {
 		display.Verbose(fmt.Sprintf("Scanning %d packages...", len(packages)))
 	}
 
@@ -116,14 +130,14 @@ func runScan(cmd *cobra.Command, args []string) error {
 
 	scanners := orch.AvailableScanners()
 	if len(scanners) == 0 {
-		if !scanJSON {
+		if !machineOutput {
 			display.Warning("No scanners available")
 		}
 		return nil
 	}
 
 	var result *scanner.AggregatedResult
-	if scanJSON {
+	if machineOutput {
 		result, err = orch.Scan(ctx, packages)
 	} else {
 		result, err = orch.ScanWithProgress(ctx, packages, func(name string, done bool) {
@@ -140,11 +154,22 @@ func runScan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Output results
-	if scanJSON {
-		return outputJSONResult(result)
+	if machineOutput {
+		return emitMachineResult(scanFormat, result)
 	}
 
 	return outputTextResult(cfg, display, result)
+}
+
+// emitMachineResult dispatches to the chosen non-text formatter.
+func emitMachineResult(format string, result *scanner.AggregatedResult) error {
+	switch format {
+	case "json":
+		return outputJSONResult(result)
+	case "sarif":
+		return emitSARIF(os.Stdout, result)
+	}
+	return errors.New(errors.ExitConfigError, "unknown output format: "+format)
 }
 
 func outputJSONResult(result *scanner.AggregatedResult) error {

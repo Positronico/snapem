@@ -7,10 +7,10 @@ import (
 
 func TestValidate_RejectsUnknownPackageManager(t *testing.T) {
 	cfg := Defaults()
-	cfg.PackageManager.Preferred = "yarn" // not yet supported
+	cfg.PackageManager.Preferred = "deno" // not yet supported
 
 	if err := cfg.validate(); err == nil {
-		t.Fatalf("expected validation error for yarn, got nil")
+		t.Fatalf("expected validation error for deno, got nil")
 	} else if !strings.Contains(err.Error(), "package_manager.preferred") {
 		t.Errorf("error message missing key reference: %v", err)
 	}
@@ -129,6 +129,76 @@ func TestIsPackageBlocklisted_VersionAware(t *testing.T) {
 	}
 	if cfg.IsPackageBlocklisted("lodash", "4.17.21") {
 		t.Error("pinned blocklist entry must not match other versions")
+	}
+}
+
+func TestGetCVEActionForPackage_FallsBackToGlobal(t *testing.T) {
+	cfg := Defaults()
+	cfg.Scanning.Policy.CVE = map[string]string{
+		"critical": "block",
+		"high":     "block",
+		"medium":   "warn",
+		"low":      "ignore",
+	}
+
+	// No per-package override → global wins.
+	if got := cfg.GetCVEActionForPackage("anything", "high"); got != "block" {
+		t.Errorf("no override, high → %q, want block", got)
+	}
+	if got := cfg.GetCVEActionForPackage("anything", "medium"); got != "warn" {
+		t.Errorf("no override, medium → %q, want warn", got)
+	}
+}
+
+func TestGetCVEActionForPackage_OverrideApplies(t *testing.T) {
+	cfg := Defaults()
+	cfg.Scanning.Policy.CVE = map[string]string{
+		"high":   "block",
+		"medium": "warn",
+	}
+	cfg.Scanning.Policy.Packages = map[string]PackagePolicyOverride{
+		"lodash": {
+			CVE: map[string]string{
+				"high": "warn", // I've reviewed every lodash release we use
+			},
+		},
+	}
+
+	// Override hits its specific severity.
+	if got := cfg.GetCVEActionForPackage("lodash", "high"); got != "warn" {
+		t.Errorf("lodash high (overridden) → %q, want warn", got)
+	}
+	// Partial override: medium falls back to global because the override
+	// didn't define cve.medium.
+	if got := cfg.GetCVEActionForPackage("lodash", "medium"); got != "warn" {
+		t.Errorf("lodash medium (no specific override) → %q, want warn", got)
+	}
+	// Other packages still get global behavior.
+	if got := cfg.GetCVEActionForPackage("axios", "high"); got != "block" {
+		t.Errorf("axios high → %q, want block (no override)", got)
+	}
+}
+
+func TestGetMalwareActionForPackage(t *testing.T) {
+	cfg := Defaults()
+	cfg.Scanning.Policy.Malware = "block"
+	cfg.Scanning.Policy.Packages = map[string]PackagePolicyOverride{
+		"flagged-but-trusted": {Malware: "warn"},
+	}
+
+	if got := cfg.GetMalwareActionForPackage("flagged-but-trusted"); got != "warn" {
+		t.Errorf("override → %q, want warn", got)
+	}
+	if got := cfg.GetMalwareActionForPackage("evil-pkg"); got != "block" {
+		t.Errorf("no override → %q, want block", got)
+	}
+
+	// Override with empty Malware should fall back to global.
+	cfg.Scanning.Policy.Packages["only-cve"] = PackagePolicyOverride{
+		CVE: map[string]string{"high": "ignore"},
+	}
+	if got := cfg.GetMalwareActionForPackage("only-cve"); got != "block" {
+		t.Errorf("override with empty Malware → %q, want global block", got)
 	}
 }
 

@@ -48,6 +48,7 @@ func Defaults() *Config {
 				"npm":  "node:lts-slim",
 				"bun":  "oven/bun:latest",
 				"pnpm": "node:lts-slim", // pnpm runs via corepack inside node
+				"yarn": "node:lts-slim", // yarn also via corepack
 			},
 			Network:     "host",
 			Environment: []string{},
@@ -84,6 +85,7 @@ func RegisterDefaults(v *viper.Viper) {
 	v.SetDefault("container.image.npm", d.Container.Image["npm"])
 	v.SetDefault("container.image.bun", d.Container.Image["bun"])
 	v.SetDefault("container.image.pnpm", d.Container.Image["pnpm"])
+	v.SetDefault("container.image.yarn", d.Container.Image["yarn"])
 	v.SetDefault("container.network", d.Container.Network)
 
 	v.SetDefault("ui.color", d.UI.Color)

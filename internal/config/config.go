@@ -57,6 +57,25 @@ type PolicyConfig struct {
 	AllowOverride bool              `mapstructure:"allow_override"`
 	Allowlist     []string          `mapstructure:"allowlist"`
 	Blocklist     []string          `mapstructure:"blocklist"`
+
+	// Packages override the global policy on a per-package basis. Keys are
+	// package names ("lodash" / "@types/node"). Values are partial
+	// PolicyConfigs — set only the fields you want to override; missing
+	// fields fall back to the global policy.
+	//
+	// Example use case: "lodash" warnings are informational because we've
+	// reviewed every release we use, but the global policy still blocks
+	// the rest of the dependency tree.
+	Packages map[string]PackagePolicyOverride `mapstructure:"packages"`
+}
+
+// PackagePolicyOverride is the subset of PolicyConfig fields meaningful
+// as a per-package override. We don't allow per-package allowlist /
+// blocklist (those are already version-aware lists at the global level)
+// or per-package allow_override (UX is confusing).
+type PackagePolicyOverride struct {
+	Malware string            `mapstructure:"malware"` // optional
+	CVE     map[string]string `mapstructure:"cve"`     // optional
 }
 
 // ContainerConfig holds container execution settings
@@ -103,7 +122,7 @@ func Load() (*Config, error) {
 
 func (c *Config) validate() error {
 	if err := requireOneOf("package_manager.preferred",
-		c.PackageManager.Preferred, "auto", "npm", "bun", "pnpm"); err != nil {
+		c.PackageManager.Preferred, "auto", "npm", "bun", "pnpm", "yarn"); err != nil {
 		return err
 	}
 	if err := requireOneOf("container.network",
@@ -155,12 +174,39 @@ func (c *Config) ShouldWarn(action string) bool {
 	return action == "warn"
 }
 
-// GetCVEAction returns the action for a given CVE severity
+// GetCVEAction returns the action for a given CVE severity at the global
+// level. For per-package decisions, callers should use
+// GetCVEActionForPackage.
 func (c *Config) GetCVEAction(severity string) string {
 	if action, ok := c.Scanning.Policy.CVE[severity]; ok {
 		return action
 	}
 	return "ignore"
+}
+
+// GetCVEActionForPackage returns the CVE-severity action that applies to
+// pkgName, consulting any per-package override first and falling back to
+// the global policy when the override is unset or doesn't cover this
+// severity. The fallback is partial: a package override that defines
+// cve.high but not cve.medium still inherits cve.medium from global.
+func (c *Config) GetCVEActionForPackage(pkgName, severity string) string {
+	if override, ok := c.Scanning.Policy.Packages[pkgName]; ok {
+		if action, ok := override.CVE[severity]; ok {
+			return action
+		}
+	}
+	return c.GetCVEAction(severity)
+}
+
+// GetMalwareActionForPackage returns the malware-policy action for
+// pkgName, consulting per-package override first.
+func (c *Config) GetMalwareActionForPackage(pkgName string) string {
+	if override, ok := c.Scanning.Policy.Packages[pkgName]; ok {
+		if override.Malware != "" {
+			return override.Malware
+		}
+	}
+	return c.Scanning.Policy.Malware
 }
 
 // IsPackageAllowlisted reports whether (name, version) matches any entry
