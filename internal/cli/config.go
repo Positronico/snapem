@@ -63,6 +63,17 @@ scanning:
     enabled: true
     timeout: 30s
 
+  # OSSF Scorecard (via deps.dev) — measures maintainer hygiene
+  # rather than malware or CVEs. Emits an advisory finding when a
+  # package's repo scores below threshold. Findings are FindingTypeQuality
+  # and never block installs (advisory only) regardless of severity.
+  scorecard:
+    enabled: true
+    timeout: 30s
+    # Score range is 0-10. Anything below this triggers a finding.
+    # 5.0 is a reasonable cutoff for "noticeably below mid-range".
+    threshold: 5.0
+
   # Result caching
   cache:
     enabled: true

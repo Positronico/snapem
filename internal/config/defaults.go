@@ -25,6 +25,11 @@ func Defaults() *Config {
 				Enabled: true,
 				Timeout: 30 * time.Second,
 			},
+			Scorecard: ScorecardConfig{
+				Enabled:   true,
+				Timeout:   30 * time.Second,
+				Threshold: 5.0,
+			},
 			Cache: CacheConfig{
 				Enabled: true,
 				TTL:     24 * time.Hour,
@@ -81,6 +86,9 @@ func RegisterDefaults(v *viper.Viper) {
 	v.SetDefault("scanning.socket.timeout", d.Scanning.Socket.Timeout)
 	v.SetDefault("scanning.osv.enabled", d.Scanning.OSV.Enabled)
 	v.SetDefault("scanning.osv.timeout", d.Scanning.OSV.Timeout)
+	v.SetDefault("scanning.scorecard.enabled", d.Scanning.Scorecard.Enabled)
+	v.SetDefault("scanning.scorecard.timeout", d.Scanning.Scorecard.Timeout)
+	v.SetDefault("scanning.scorecard.threshold", d.Scanning.Scorecard.Threshold)
 	v.SetDefault("scanning.cache.enabled", d.Scanning.Cache.Enabled)
 	v.SetDefault("scanning.cache.ttl", d.Scanning.Cache.TTL)
 	v.SetDefault("scanning.policy.malware", d.Scanning.Policy.Malware)

@@ -23,11 +23,12 @@ type PackageManagerConfig struct {
 
 // ScanningConfig holds security scanning settings
 type ScanningConfig struct {
-	Enabled bool         `mapstructure:"enabled"`
-	Socket  SocketConfig `mapstructure:"socket"`
-	OSV     OSVConfig    `mapstructure:"osv"`
-	Cache   CacheConfig  `mapstructure:"cache"`
-	Policy  PolicyConfig `mapstructure:"policy"`
+	Enabled   bool            `mapstructure:"enabled"`
+	Socket    SocketConfig    `mapstructure:"socket"`
+	OSV       OSVConfig       `mapstructure:"osv"`
+	Scorecard ScorecardConfig `mapstructure:"scorecard"`
+	Cache     CacheConfig     `mapstructure:"cache"`
+	Policy    PolicyConfig    `mapstructure:"policy"`
 }
 
 // SocketConfig holds Socket.dev settings
@@ -41,6 +42,26 @@ type SocketConfig struct {
 type OSVConfig struct {
 	Enabled bool          `mapstructure:"enabled"`
 	Timeout time.Duration `mapstructure:"timeout"`
+}
+
+// ScorecardConfig holds OSSF Scorecard settings. Data is fetched from
+// deps.dev which embeds Scorecard's per-repo score and per-check detail
+// in its /v3/projects response. Scorecard measures maintainer hygiene
+// (recent activity, code review, signed releases, branch protection,
+// dangerous workflows, pinned dependencies, etc.) — a different signal
+// from Socket and OSV, which focus on malware and known CVEs.
+type ScorecardConfig struct {
+	Enabled bool          `mapstructure:"enabled"`
+	Timeout time.Duration `mapstructure:"timeout"`
+
+	// Threshold is the score below which snapem emits a finding. Range
+	// 0–10. Default 5.0. Lower scores produce higher-severity findings:
+	//   < 2.0  → high
+	//   < 4.0  → medium
+	//   < threshold → low
+	// Above the threshold emits nothing. Findings are advisory only
+	// (FindingTypeQuality) and never block by default.
+	Threshold float64 `mapstructure:"threshold"`
 }
 
 // CacheConfig holds scan result caching settings

@@ -11,6 +11,7 @@ import (
 	"github.com/positronico/snapem/internal/manifest"
 	"github.com/positronico/snapem/internal/scanner/cache"
 	"github.com/positronico/snapem/internal/scanner/osv"
+	"github.com/positronico/snapem/internal/scanner/scorecard"
 	"github.com/positronico/snapem/internal/scanner/socket"
 )
 
@@ -48,6 +49,9 @@ func NewOrchestrator(cfg *config.Config) *Orchestrator {
 	}
 	if cfg.Scanning.OSV.Enabled {
 		o.scanners = append(o.scanners, wrapCache(osv.NewClient(cfg.Scanning.OSV), store, ttl))
+	}
+	if cfg.Scanning.Scorecard.Enabled {
+		o.scanners = append(o.scanners, wrapCache(scorecard.NewClient(cfg.Scanning.Scorecard), store, ttl))
 	}
 
 	return o
