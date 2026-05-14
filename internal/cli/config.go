@@ -63,6 +63,25 @@ scanning:
     enabled: true
     timeout: 30s
 
+  # npm provenance attestations. When a package was published with
+  # 'npm publish --provenance', npm stores a SLSA-format attestation
+  # binding the tarball to (source repo, git ref, builder identity).
+  # snapem fetches and decodes this attestation, surfacing subject-PURL
+  # mismatches (the shape of an attestation-confusion attack) and —
+  # when warn_missing is true — packages without any attestation.
+  #
+  # Cryptographic verification of the Sigstore signature chain is a
+  # planned follow-up; today the scanner trusts the npm registry over
+  # HTTPS to serve genuine metadata.
+  provenance:
+    enabled: true
+    timeout: 30s
+    # When true, packages without provenance emit a low-severity
+    # advisory finding. Default false because most of npm hasn't
+    # adopted provenance yet — enabling this on a typical project
+    # would flag the majority of dependencies.
+    warn_missing: false
+
   # OSSF Scorecard (via deps.dev) — measures maintainer hygiene
   # rather than malware or CVEs. Emits an advisory finding when a
   # package's repo scores below threshold. Findings are FindingTypeQuality

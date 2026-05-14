@@ -30,6 +30,8 @@ Nothing currently open. All previous P1 items shipped to `main` as part of the p
 - [x] **Security best practices guide.** Shipped as SECURITY.md — threat model, prevents/doesn't-prevent table, policy choice guidance, operational hardening.
 - [x] **Contributing guide.** Shipped as CONTRIBUTING.md — project layout, the loop, how to add a scanner / package manager / lockfile parser, E2E test run instructions.
 - [x] **OSSF Scorecard scanner.** Surfaces maintainer hygiene findings via deps.dev. Advisory-only by default. Configurable threshold (default 5.0/10). Verified live against left-pad (3.9/10) which correctly emits a medium-severity finding.
+- [x] **npm provenance scanner (v0.10).** Decodes SLSA attestations from the npm registry. Subject-PURL mismatch → medium finding. Optional `warn_missing` flags packages without provenance. Verified live against sigstore@3.0.0 (provenance from github.com/sigstore/sigstore-js@main, no finding) and lodash (no provenance, advisory under warn_missing).
+- [ ] **Sigstore cryptographic verification.** Follow-up to v0.10. Add sigstore-go, verify Fulcio cert chain + rekor inclusion proof + DSSE signature. Today's metadata-only check trusts the npm registry over HTTPS; crypto verification hardens against MITM and registry compromise.
 
 ## P4 — small-scope helpers worth doing eventually
 

@@ -93,15 +93,18 @@ That's it! snapem scans your packages, then runs everything safely in a containe
 
 ## Setting Up Security Scanning
 
-snapem uses three security data sources:
+snapem uses four security data sources:
 
 | Service | What it detects | API Key Required? |
 |---------|----------------|-------------------|
 | [Socket.dev](https://socket.dev) | Malware, suspicious code, typosquatting | Yes (free tier available) |
 | [Google OSV](https://osv.dev) | Known vulnerabilities (CVEs) | No |
 | [OSSF Scorecard](https://github.com/ossf/scorecard) via [deps.dev](https://deps.dev) | Maintainer hygiene (recent activity, code review, signed releases, dangerous workflows, etc.) | No |
+| npm provenance attestations | SLSA-format proof of "this tarball was built from `<repo>@<ref>` by `<builder>`" — detects attestation-confusion attacks and (optionally) flags packages with no provenance | No |
 
-Scorecard findings are advisory only — they surface "this package looks abandoned" / "this repo has no review enforcement" signal that the other scanners can't see, but never block an install by default. Tune via `scanning.scorecard.threshold` (default `5.0`; lower = quieter, higher = noisier).
+Scorecard findings are advisory only — they surface "this package looks abandoned" / "this repo has no review enforcement" signal that the other scanners can't see, but never block an install by default. Tune via `scanning.scorecard.threshold` (default `5.0`).
+
+Provenance findings fire on subject-PURL mismatches and unreachable attestations by default. Set `scanning.provenance.warn_missing: true` to also flag packages without any provenance — useful for projects enforcing a provenance-only policy on direct dependencies.
 
 ### Getting a Socket.dev API Key (Recommended)
 

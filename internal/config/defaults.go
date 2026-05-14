@@ -30,6 +30,11 @@ func Defaults() *Config {
 				Timeout:   30 * time.Second,
 				Threshold: 5.0,
 			},
+			Provenance: ProvenanceConfig{
+				Enabled:     true,
+				Timeout:     30 * time.Second,
+				WarnMissing: false,
+			},
 			Cache: CacheConfig{
 				Enabled: true,
 				TTL:     24 * time.Hour,
@@ -89,6 +94,9 @@ func RegisterDefaults(v *viper.Viper) {
 	v.SetDefault("scanning.scorecard.enabled", d.Scanning.Scorecard.Enabled)
 	v.SetDefault("scanning.scorecard.timeout", d.Scanning.Scorecard.Timeout)
 	v.SetDefault("scanning.scorecard.threshold", d.Scanning.Scorecard.Threshold)
+	v.SetDefault("scanning.provenance.enabled", d.Scanning.Provenance.Enabled)
+	v.SetDefault("scanning.provenance.timeout", d.Scanning.Provenance.Timeout)
+	v.SetDefault("scanning.provenance.warn_missing", d.Scanning.Provenance.WarnMissing)
 	v.SetDefault("scanning.cache.enabled", d.Scanning.Cache.Enabled)
 	v.SetDefault("scanning.cache.ttl", d.Scanning.Cache.TTL)
 	v.SetDefault("scanning.policy.malware", d.Scanning.Policy.Malware)
