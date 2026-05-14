@@ -35,6 +35,11 @@ func Defaults() *Config {
 				Timeout:     30 * time.Second,
 				WarnMissing: false,
 			},
+			Metadata: MetadataConfig{
+				Enabled:            true,
+				Timeout:            30 * time.Second,
+				WarnUnknownLicense: false,
+			},
 			Cache: CacheConfig{
 				Enabled: true,
 				TTL:     24 * time.Hour,
@@ -97,6 +102,9 @@ func RegisterDefaults(v *viper.Viper) {
 	v.SetDefault("scanning.provenance.enabled", d.Scanning.Provenance.Enabled)
 	v.SetDefault("scanning.provenance.timeout", d.Scanning.Provenance.Timeout)
 	v.SetDefault("scanning.provenance.warn_missing", d.Scanning.Provenance.WarnMissing)
+	v.SetDefault("scanning.metadata.enabled", d.Scanning.Metadata.Enabled)
+	v.SetDefault("scanning.metadata.timeout", d.Scanning.Metadata.Timeout)
+	v.SetDefault("scanning.metadata.warn_unknown_license", d.Scanning.Metadata.WarnUnknownLicense)
 	v.SetDefault("scanning.cache.enabled", d.Scanning.Cache.Enabled)
 	v.SetDefault("scanning.cache.ttl", d.Scanning.Cache.TTL)
 	v.SetDefault("scanning.policy.malware", d.Scanning.Policy.Malware)

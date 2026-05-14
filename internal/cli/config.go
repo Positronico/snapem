@@ -82,6 +82,18 @@ scanning:
     # would flag the majority of dependencies.
     warn_missing: false
 
+  # Package metadata enrichment (via deps.dev). Surfaces maintainer-
+  # marked deprecation as a medium finding (always, when enabled).
+  # Optional license posture surfacing.
+  metadata:
+    enabled: true
+    timeout: 30s
+    # When true, packages with unknown/non-standard licenses emit a
+    # low advisory. Default false because deps.dev returns
+    # "non-standard" for many real packages whose license string
+    # isn't a strict SPDX identifier — noisy.
+    warn_unknown_license: false
+
   # OSSF Scorecard (via deps.dev) — measures maintainer hygiene
   # rather than malware or CVEs. Emits an advisory finding when a
   # package's repo scores below threshold. Findings are FindingTypeQuality

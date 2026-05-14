@@ -93,7 +93,7 @@ That's it! snapem scans your packages, then runs everything safely in a containe
 
 ## Setting Up Security Scanning
 
-snapem uses four security data sources:
+snapem uses five security data sources:
 
 | Service | What it detects | API Key Required? |
 |---------|----------------|-------------------|
@@ -101,10 +101,14 @@ snapem uses four security data sources:
 | [Google OSV](https://osv.dev) | Known vulnerabilities (CVEs) | No |
 | [OSSF Scorecard](https://github.com/ossf/scorecard) via [deps.dev](https://deps.dev) | Maintainer hygiene (recent activity, code review, signed releases, dangerous workflows, etc.) | No |
 | npm provenance attestations | SLSA-format proof of "this tarball was built from `<repo>@<ref>` by `<builder>`" — detects attestation-confusion attacks and (optionally) flags packages with no provenance | No |
+| Package metadata via [deps.dev](https://deps.dev) | Maintainer-marked deprecation (npm `npm deprecate`); optionally license posture | No |
 
-Scorecard findings are advisory only — they surface "this package looks abandoned" / "this repo has no review enforcement" signal that the other scanners can't see, but never block an install by default. Tune via `scanning.scorecard.threshold` (default `5.0`).
+Each scanner adds an independent angle. A bad-news package commonly trips multiple scanners — e.g. `request@2.88.2` shows up as deprecated, low maintainer hygiene, AND a known SSRF CVE in a single scan pass. Findings from quality scanners (Scorecard, metadata, provenance) are advisory by default; the malware/CVE scanners block per the configured policy.
 
-Provenance findings fire on subject-PURL mismatches and unreachable attestations by default. Set `scanning.provenance.warn_missing: true` to also flag packages without any provenance — useful for projects enforcing a provenance-only policy on direct dependencies.
+Tunables:
+- `scanning.scorecard.threshold` (default `5.0`) — Scorecard score below which a finding fires
+- `scanning.provenance.warn_missing` (default `false`) — also flag packages without any provenance
+- `scanning.metadata.warn_unknown_license` (default `false`) — emit a low advisory for unknown / non-standard licenses
 
 ### Getting a Socket.dev API Key (Recommended)
 
