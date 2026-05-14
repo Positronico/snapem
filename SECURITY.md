@@ -10,7 +10,7 @@ snapem exists because `npm install` runs arbitrary code on your machine with you
 
 snapem narrows that surface in two ways:
 
-1. **Pre-flight scanning.** Every dependency is checked against three data sources *before* the package manager is invoked: Socket.dev (malware, typosquats, install-script analysis), Google OSV (CVEs), and OSSF Scorecard via deps.dev (maintainer hygiene — recent activity, code review, signed releases, dangerous workflows, etc.). Configurable per-severity policies (`block` / `warn` / `ignore`) decide whether to proceed. Scorecard findings are advisory only by default — they surface signal that no other scanner sees, but a low maintenance score isn't on its own a reason to block an install.
+1. **Pre-flight scanning.** Every dependency is checked against four data sources *before* the package manager is invoked: Socket.dev (malware, typosquats, install-script analysis), Google OSV (CVEs), OSSF Scorecard via deps.dev (maintainer hygiene — recent activity, code review, signed releases, dangerous workflows, etc.), and npm provenance attestations (SLSA-format binding of tarball → source repo + builder). Configurable per-severity policies (`block` / `warn` / `ignore`) decide whether to proceed. Scorecard findings are advisory only by default — they surface signal that no other scanner sees, but a low maintenance score isn't on its own a reason to block an install. Provenance fires on real anomalies (subject-PURL mismatch) by default; flagging absence-of-provenance is opt-in.
 2. **Container isolation.** The install/run/exec actually happens inside Apple's native `container` runtime. Lifecycle scripts run in a Linux VM with no access to your home directory, your Keychain, your shell environment, or the host network beyond what you allow.
 
 ## What snapem prevents
@@ -19,6 +19,7 @@ These are concrete attacker capabilities that snapem blocks or detects on a defa
 
 | Attack | How snapem stops it |
 |---|---|
+| Attestation-confusion attack | A malicious republish ships another package's provenance attestation. snapem's provenance scanner verifies that the SLSA statement's `subject` PURL matches the package npm just served — a mismatch fires a medium-severity finding. |
 | Abandoned-but-still-popular dependency | OSSF Scorecard's `Maintained` check surfaces packages with no recent commits. Default threshold 5.0/10 catches the common "last touched 4 years ago" case before a malicious fork of the package starts circulating. |
 | Postinstall reading `~/.ssh/id_rsa` | The container has no bind-mount of `~/.ssh`; the malicious read returns ENOENT. |
 | `process.env.NPM_TOKEN` exfiltration | `NPM_TOKEN` is explicitly stripped from the forwarded environment (`container.environment` default). |
@@ -37,6 +38,7 @@ Be honest about the gaps. snapem is **defense in depth**, not a silver bullet.
 | **Code you write that calls into a compromised package** | snapem can't stop you from `import`-ing a malicious package and then `eval`-ing its output yourself. The container only isolates the install/build step. |
 | **Attacks via the lockfile itself** (`overrides`, `resolutions`) | snapem reads the lockfile but doesn't audit overrides for substitution attacks. Treat untrusted lockfile diffs as untrusted code. |
 | **A scanner missing a finding** | Both Socket.dev and OSV have lag between an incident and an advisory being published. snapem caches scan results — clear the cache (`snapem cache clear`) when you suspect freshness matters. |
+| **Forged provenance attestations** | snapem's provenance scanner currently parses the SLSA statement but does not yet verify the Sigstore signature chain. A motivated attacker could craft a fake attestation; until cryptographic verification ships (planned follow-up), provenance is a weak signal against a sophisticated forgery — strong only against omission. |
 | **Compromised registry** (npmjs.com itself serving a different tarball) | snapem doesn't verify package integrity beyond what the package manager does. If npmjs.com is compromised, you need out-of-band verification (sigstore, OIDC-signed provenance). |
 | **Container escape** | A bug in Apple's `container` runtime would defeat isolation. Apple's container shares the macOS hypervisor with Docker Desktop and Lima; no known escapes as of v0.9.0, but it's not zero risk. |
 | **Attacks via your editor** (VS Code extensions, IntelliJ plugins) | Out of scope. snapem only intercepts the package-manager CLI. |

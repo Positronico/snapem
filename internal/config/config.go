@@ -23,12 +23,13 @@ type PackageManagerConfig struct {
 
 // ScanningConfig holds security scanning settings
 type ScanningConfig struct {
-	Enabled   bool            `mapstructure:"enabled"`
-	Socket    SocketConfig    `mapstructure:"socket"`
-	OSV       OSVConfig       `mapstructure:"osv"`
-	Scorecard ScorecardConfig `mapstructure:"scorecard"`
-	Cache     CacheConfig     `mapstructure:"cache"`
-	Policy    PolicyConfig    `mapstructure:"policy"`
+	Enabled    bool             `mapstructure:"enabled"`
+	Socket     SocketConfig     `mapstructure:"socket"`
+	OSV        OSVConfig        `mapstructure:"osv"`
+	Scorecard  ScorecardConfig  `mapstructure:"scorecard"`
+	Provenance ProvenanceConfig `mapstructure:"provenance"`
+	Cache      CacheConfig      `mapstructure:"cache"`
+	Policy     PolicyConfig     `mapstructure:"policy"`
 }
 
 // SocketConfig holds Socket.dev settings
@@ -42,6 +43,30 @@ type SocketConfig struct {
 type OSVConfig struct {
 	Enabled bool          `mapstructure:"enabled"`
 	Timeout time.Duration `mapstructure:"timeout"`
+}
+
+// ProvenanceConfig holds npm provenance settings. snapem fetches the
+// per-version npm registry metadata, follows the attestations URL to
+// the SLSA provenance bundle, and decodes the DSSE envelope payload
+// to recover the build inputs (source repo, git ref, workflow path).
+//
+// This release parses the SIGNED claim metadata but does NOT yet
+// verify the Sigstore signature chain — that's a planned follow-up
+// requiring the sigstore-go library. Today's value is detecting
+// subject-PURL mismatches (the package's name in the attestation
+// disagrees with what npm served it as) and surfacing build-input
+// detail to the user. Real attackers today omit provenance entirely
+// rather than forge it, which the metadata check already detects.
+type ProvenanceConfig struct {
+	Enabled bool          `mapstructure:"enabled"`
+	Timeout time.Duration `mapstructure:"timeout"`
+
+	// WarnMissing emits a low-severity advisory when a package has no
+	// provenance attestation. Default false because most of npm hasn't
+	// adopted provenance yet — turning this on would flag the majority
+	// of dependencies. Useful for projects that want to enforce a
+	// "provenance-only" policy on their direct dependencies.
+	WarnMissing bool `mapstructure:"warn_missing"`
 }
 
 // ScorecardConfig holds OSSF Scorecard settings. Data is fetched from
