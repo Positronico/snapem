@@ -2,7 +2,7 @@
 
 All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
-## Unreleased
+## v0.10.0 — 2026-05-13
 
 ### Added
 - npm provenance scanner (`scanning.provenance`, enabled by default). Fetches per-version metadata from the npm registry, follows the SLSA attestation URL, and decodes the DSSE envelope payload to recover the build inputs (source repo, git ref, workflow path, builder identity). Emits a **medium-severity** finding on subject-PURL mismatch (the shape of an attestation-confusion attack) and a **low-severity** advisory on unreachable/unreadable advertised attestations. Optional `warn_missing` config (default `false`) flags packages without any provenance — useful for projects wanting to enforce a provenance-only policy on direct dependencies. Cryptographic verification of the Sigstore signature chain is a planned follow-up; today the scanner trusts the npm registry over HTTPS.
