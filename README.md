@@ -93,12 +93,15 @@ That's it! snapem scans your packages, then runs everything safely in a containe
 
 ## Setting Up Security Scanning
 
-snapem uses two security services:
+snapem uses three security data sources:
 
 | Service | What it detects | API Key Required? |
 |---------|----------------|-------------------|
 | [Socket.dev](https://socket.dev) | Malware, suspicious code, typosquatting | Yes (free tier available) |
 | [Google OSV](https://osv.dev) | Known vulnerabilities (CVEs) | No |
+| [OSSF Scorecard](https://github.com/ossf/scorecard) via [deps.dev](https://deps.dev) | Maintainer hygiene (recent activity, code review, signed releases, dangerous workflows, etc.) | No |
+
+Scorecard findings are advisory only — they surface "this package looks abandoned" / "this repo has no review enforcement" signal that the other scanners can't see, but never block an install by default. Tune via `scanning.scorecard.threshold` (default `5.0`; lower = quieter, higher = noisier).
 
 ### Getting a Socket.dev API Key (Recommended)
 

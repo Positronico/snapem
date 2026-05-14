@@ -10,7 +10,7 @@ snapem exists because `npm install` runs arbitrary code on your machine with you
 
 snapem narrows that surface in two ways:
 
-1. **Pre-flight scanning.** Every dependency is checked against Socket.dev (malware, typosquats, install-script analysis) and Google OSV (CVEs) *before* the package manager is invoked. Configurable per-severity policies (`block` / `warn` / `ignore`) decide whether to proceed.
+1. **Pre-flight scanning.** Every dependency is checked against three data sources *before* the package manager is invoked: Socket.dev (malware, typosquats, install-script analysis), Google OSV (CVEs), and OSSF Scorecard via deps.dev (maintainer hygiene — recent activity, code review, signed releases, dangerous workflows, etc.). Configurable per-severity policies (`block` / `warn` / `ignore`) decide whether to proceed. Scorecard findings are advisory only by default — they surface signal that no other scanner sees, but a low maintenance score isn't on its own a reason to block an install.
 2. **Container isolation.** The install/run/exec actually happens inside Apple's native `container` runtime. Lifecycle scripts run in a Linux VM with no access to your home directory, your Keychain, your shell environment, or the host network beyond what you allow.
 
 ## What snapem prevents
@@ -19,6 +19,7 @@ These are concrete attacker capabilities that snapem blocks or detects on a defa
 
 | Attack | How snapem stops it |
 |---|---|
+| Abandoned-but-still-popular dependency | OSSF Scorecard's `Maintained` check surfaces packages with no recent commits. Default threshold 5.0/10 catches the common "last touched 4 years ago" case before a malicious fork of the package starts circulating. |
 | Postinstall reading `~/.ssh/id_rsa` | The container has no bind-mount of `~/.ssh`; the malicious read returns ENOENT. |
 | `process.env.NPM_TOKEN` exfiltration | `NPM_TOKEN` is explicitly stripped from the forwarded environment (`container.environment` default). |
 | `keytar` / Keychain probe | The container is a Linux VM. The macOS Keychain API does not exist there. |

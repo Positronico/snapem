@@ -29,6 +29,7 @@ Nothing currently open. All previous P1 items shipped to `main` as part of the p
 - [ ] **Scan duration / cache hit metrics.** Verbose-mode summary line: "scanned 482 packages (379 cached, 103 fresh) in 0.6s".
 - [x] **Security best practices guide.** Shipped as SECURITY.md — threat model, prevents/doesn't-prevent table, policy choice guidance, operational hardening.
 - [x] **Contributing guide.** Shipped as CONTRIBUTING.md — project layout, the loop, how to add a scanner / package manager / lockfile parser, E2E test run instructions.
+- [x] **OSSF Scorecard scanner.** Surfaces maintainer hygiene findings via deps.dev. Advisory-only by default. Configurable threshold (default 5.0/10). Verified live against left-pad (3.9/10) which correctly emits a medium-severity finding.
 
 ## P4 — small-scope helpers worth doing eventually
 
