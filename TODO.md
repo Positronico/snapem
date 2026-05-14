@@ -31,6 +31,7 @@ Nothing currently open. All previous P1 items shipped to `main` as part of the p
 - [x] **Contributing guide.** Shipped as CONTRIBUTING.md — project layout, the loop, how to add a scanner / package manager / lockfile parser, E2E test run instructions.
 - [x] **OSSF Scorecard scanner.** Surfaces maintainer hygiene findings via deps.dev. Advisory-only by default. Configurable threshold (default 5.0/10). Verified live against left-pad (3.9/10) which correctly emits a medium-severity finding.
 - [x] **npm provenance scanner (v0.10).** Decodes SLSA attestations from the npm registry. Subject-PURL mismatch → medium finding. Optional `warn_missing` flags packages without provenance. Verified live against sigstore@3.0.0 (provenance from github.com/sigstore/sigstore-js@main, no finding) and lodash (no provenance, advisory under warn_missing).
+- [x] **deps.dev metadata scanner (v0.11).** Surfaces maintainer-marked deprecation as a medium finding with the npm deprecate reason. Optional `warn_unknown_license` flags missing / non-standard licenses. Verified live against request@2.88.2 (deprecated + Scorecard low + OSV CVE all firing together — the multi-angle value-prop).
 - [ ] **Sigstore cryptographic verification.** Follow-up to v0.10. Add sigstore-go, verify Fulcio cert chain + rekor inclusion proof + DSSE signature. Today's metadata-only check trusts the npm registry over HTTPS; crypto verification hardens against MITM and registry compromise.
 
 ## P4 — small-scope helpers worth doing eventually

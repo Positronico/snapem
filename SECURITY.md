@@ -10,7 +10,7 @@ snapem exists because `npm install` runs arbitrary code on your machine with you
 
 snapem narrows that surface in two ways:
 
-1. **Pre-flight scanning.** Every dependency is checked against four data sources *before* the package manager is invoked: Socket.dev (malware, typosquats, install-script analysis), Google OSV (CVEs), OSSF Scorecard via deps.dev (maintainer hygiene — recent activity, code review, signed releases, dangerous workflows, etc.), and npm provenance attestations (SLSA-format binding of tarball → source repo + builder). Configurable per-severity policies (`block` / `warn` / `ignore`) decide whether to proceed. Scorecard findings are advisory only by default — they surface signal that no other scanner sees, but a low maintenance score isn't on its own a reason to block an install. Provenance fires on real anomalies (subject-PURL mismatch) by default; flagging absence-of-provenance is opt-in.
+1. **Pre-flight scanning.** Every dependency is checked against five data sources *before* the package manager is invoked: Socket.dev (malware, typosquats, install-script analysis), Google OSV (CVEs), OSSF Scorecard via deps.dev (maintainer hygiene), npm provenance attestations (SLSA-format binding of tarball → source repo + builder), and deps.dev package metadata (maintainer-marked deprecation, license posture). Configurable per-severity policies (`block` / `warn` / `ignore`) decide whether to proceed. Quality findings (Scorecard, provenance, metadata) are advisory by default — they surface signal that no other scanner sees, but won't gate an install. Malware and CVE findings block per policy.
 2. **Container isolation.** The install/run/exec actually happens inside Apple's native `container` runtime. Lifecycle scripts run in a Linux VM with no access to your home directory, your Keychain, your shell environment, or the host network beyond what you allow.
 
 ## What snapem prevents
@@ -19,6 +19,7 @@ These are concrete attacker capabilities that snapem blocks or detects on a defa
 
 | Attack | How snapem stops it |
 |---|---|
+| Maintainer-declared deprecation | The metadata scanner reads deps.dev's `isDeprecated` flag, set when the publisher ran `npm deprecate`. Surfaces as a medium finding with the publisher's reason in the description. |
 | Attestation-confusion attack | A malicious republish ships another package's provenance attestation. snapem's provenance scanner verifies that the SLSA statement's `subject` PURL matches the package npm just served — a mismatch fires a medium-severity finding. |
 | Abandoned-but-still-popular dependency | OSSF Scorecard's `Maintained` check surfaces packages with no recent commits. Default threshold 5.0/10 catches the common "last touched 4 years ago" case before a malicious fork of the package starts circulating. |
 | Postinstall reading `~/.ssh/id_rsa` | The container has no bind-mount of `~/.ssh`; the malicious read returns ENOENT. |

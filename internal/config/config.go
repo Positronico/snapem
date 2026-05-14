@@ -28,6 +28,7 @@ type ScanningConfig struct {
 	OSV        OSVConfig        `mapstructure:"osv"`
 	Scorecard  ScorecardConfig  `mapstructure:"scorecard"`
 	Provenance ProvenanceConfig `mapstructure:"provenance"`
+	Metadata   MetadataConfig   `mapstructure:"metadata"`
 	Cache      CacheConfig      `mapstructure:"cache"`
 	Policy     PolicyConfig     `mapstructure:"policy"`
 }
@@ -43,6 +44,33 @@ type SocketConfig struct {
 type OSVConfig struct {
 	Enabled bool          `mapstructure:"enabled"`
 	Timeout time.Duration `mapstructure:"timeout"`
+}
+
+// MetadataConfig holds package-metadata enrichment settings. Data
+// comes from deps.dev's /v3/systems/npm/packages/<name>/versions/<v>
+// endpoint, the same upstream the Scorecard scanner uses for repo
+// resolution. We make a separate call (cached) rather than coupling
+// the two scanners — keeps each focused and revertable.
+//
+// Surfaces:
+//   - Maintainer-marked deprecation (the npm `npm deprecate`
+//     mechanism), with the human-readable reason in the description.
+//     This is a real, actionable signal: the maintainer is telling
+//     you to stop using this version.
+//   - Optionally, unknown / non-standard licenses (compliance
+//     posture). Off by default because "non-standard" is what
+//     deps.dev returns for many real packages whose license string
+//     isn't an exact SPDX identifier (lodash, etc.) — noisy.
+type MetadataConfig struct {
+	Enabled bool          `mapstructure:"enabled"`
+	Timeout time.Duration `mapstructure:"timeout"`
+
+	// WarnUnknownLicense emits a low advisory when deps.dev reports
+	// the license as missing or "non-standard". Default false because
+	// many real packages report non-standard licenses (the string is
+	// valid but isn't a strict SPDX identifier) and the noise drowns
+	// signal.
+	WarnUnknownLicense bool `mapstructure:"warn_unknown_license"`
 }
 
 // ProvenanceConfig holds npm provenance settings. snapem fetches the
