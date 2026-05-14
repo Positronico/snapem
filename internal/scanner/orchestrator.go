@@ -122,32 +122,54 @@ func (o *Orchestrator) scan(ctx context.Context, packages []manifest.Package, on
 
 	filteredPackages := dedupePackages(o.filterAllowlisted(packages))
 
-	results, firstErr := o.runScanners(ctx, filteredPackages, onProgress)
+	results, failures := o.runScanners(ctx, filteredPackages, onProgress)
 
 	// If every scanner failed AND we have no policy-derived findings to
-	// report, surface the error so the caller can decide what to do.
-	if len(results) == 0 && firstErr != nil && !o.hasBlocklistHit(packages) {
-		return nil, firstErr
+	// report, surface the first error so the caller can decide what to
+	// do. Partial-failure scans (some scanners succeeded, some didn't)
+	// surface via AggregatedResult.ScannerErrors so the user sees which
+	// signal is missing.
+	if len(results) == 0 && len(failures) > 0 && !o.hasBlocklistHit(packages) {
+		return nil, failures[0].err
 	}
 
 	aggregated := o.aggregate(results)
 	aggregated.TotalPackages = len(filteredPackages)
 	aggregated.Duration = time.Since(start)
+	if len(failures) > 0 {
+		aggregated.ScannerErrors = make(map[string]string, len(failures))
+		for _, f := range failures {
+			aggregated.ScannerErrors[f.scanner] = f.err.Error()
+		}
+	}
 
 	o.applyBlocklist(packages, aggregated)
 	return aggregated, nil
 }
 
+// scannerFailure carries one failed scanner's identity + error so the
+// orchestrator can attribute the failure when surfacing it to the user.
+// Historic behavior was to drop the scanner name and aggregate only
+// "the first error"; the result was that a Socket rate-limit looked
+// identical to an OSV outage at the CLI layer.
+type scannerFailure struct {
+	scanner string
+	err     error
+}
+
 // runScanners fans the package list out to every available scanner
-// concurrently and returns the collected results plus the first error (if any).
-func (o *Orchestrator) runScanners(ctx context.Context, packages []manifest.Package, onProgress ProgressFunc) ([]*ScanResult, error) {
+// concurrently and returns the collected results plus per-scanner
+// failures. Caller decides whether partial success (some scanners
+// succeeded, some failed) is an error: that's a policy question, not
+// a scan-mechanics one.
+func (o *Orchestrator) runScanners(ctx context.Context, packages []manifest.Package, onProgress ProgressFunc) ([]*ScanResult, []scannerFailure) {
 	if len(o.scanners) == 0 {
 		return nil, nil
 	}
 
 	var wg sync.WaitGroup
 	resultsChan := make(chan *ScanResult, len(o.scanners))
-	errChan := make(chan error, len(o.scanners))
+	failChan := make(chan scannerFailure, len(o.scanners))
 
 	for _, s := range o.scanners {
 		if !s.IsAvailable() {
@@ -164,7 +186,7 @@ func (o *Orchestrator) runScanners(ctx context.Context, packages []manifest.Pack
 				onProgress(scanner.Name(), true)
 			}
 			if err != nil {
-				errChan <- err
+				failChan <- scannerFailure{scanner: scanner.Name(), err: err}
 				return
 			}
 			resultsChan <- result
@@ -174,11 +196,11 @@ func (o *Orchestrator) runScanners(ctx context.Context, packages []manifest.Pack
 	go func() {
 		wg.Wait()
 		close(resultsChan)
-		close(errChan)
+		close(failChan)
 	}()
 
 	var results []*ScanResult
-	var firstErr error
+	var failures []scannerFailure
 	for {
 		select {
 		case result, ok := <-resultsChan:
@@ -187,19 +209,19 @@ func (o *Orchestrator) runScanners(ctx context.Context, packages []manifest.Pack
 			} else {
 				results = append(results, result)
 			}
-		case err, ok := <-errChan:
+		case fail, ok := <-failChan:
 			if !ok {
-				errChan = nil
-			} else if firstErr == nil {
-				firstErr = err
+				failChan = nil
+			} else {
+				failures = append(failures, fail)
 			}
 		}
-		if resultsChan == nil && errChan == nil {
+		if resultsChan == nil && failChan == nil {
 			break
 		}
 	}
 
-	return results, firstErr
+	return results, failures
 }
 
 // dedupePackages collapses duplicate (name, version) pairs, preserving the

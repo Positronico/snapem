@@ -348,7 +348,7 @@ snapem install --force
 
 ## CI/CD Integration
 
-`snapem scan` runs in CI without the container runtime; the scan itself is just an HTTP query against OSV and Socket. Pin the version with `brew install positronico/tap/snapem` (or use the released tarball) and call `snapem scan` in your pipeline.
+`snapem scan` runs in CI without the container runtime; the scan itself is just HTTP queries against OSV, Socket, deps.dev, and the npm registry. Pin the version with `brew install positronico/tap/snapem` (or use the released tarball) and call `snapem scan` in your pipeline.
 
 ### GitHub Actions
 
@@ -523,7 +523,7 @@ These flags work with any command:
 | `--verbose` | `-v` | Show detailed output |
 | `--quiet` | `-q` | Show only errors |
 | `--no-color` | | Disable colored output |
-| `--package-manager` | | Force npm or bun |
+| `--package-manager` | | Force `npm`, `bun`, `pnpm`, or `yarn` |
 | `--help` | `-h` | Show help for any command |
 
 ## Troubleshooting
@@ -585,15 +585,18 @@ snapem run dev -p 3000
 ### The Security Scan
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  1. Read package.json and lockfile                      │
-│  2. Extract all package names and versions              │
-│  3. Query security APIs (in parallel):                  │
-│     ├── Socket.dev → malware, typosquats, suspicious    │
-│     └── Google OSV → known CVEs                         │
-│  4. Apply your security policy                          │
-│  5. Block or warn based on findings                     │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  1. Read package.json and lockfile (workspace-aware)         │
+│  2. Extract all package names and versions; dedupe           │
+│  3. Query five security sources in parallel:                 │
+│     ├── Socket.dev    → malware, typosquats, suspicious      │
+│     ├── Google OSV    → known CVEs                           │
+│     ├── OSSF Scorecard→ maintainer hygiene (via deps.dev)    │
+│     ├── npm provenance→ SLSA build-input attestations        │
+│     └── deps.dev meta → deprecation, license posture         │
+│  4. Apply your security policy (global + per-package)        │
+│  5. Block or warn based on findings; surface scanner failures│
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ### The Container
@@ -623,6 +626,9 @@ This means:
 | Malicious install scripts | ✅ Container isolation |
 | Typosquatting (e.g., `loddash`) | ✅ Socket.dev detection |
 | Known CVEs | ✅ Google OSV scanning |
+| Abandoned / unmaintained dependencies | ✅ OSSF Scorecard via deps.dev |
+| Attestation-confusion (`pkg:X` provenance shipped under `pkg:Y`) | ✅ npm provenance subject-PURL check |
+| Maintainer-declared deprecation | ✅ deps.dev metadata (`isDeprecated` flag) |
 | Data exfiltration | ✅ Optional network isolation (`--no-network`) |
 | Host credential theft (SSH, AWS, Keychain) | ✅ Not mounted into the container |
 
@@ -642,6 +648,9 @@ MIT — See [LICENSE](LICENSE)
 ## Credits
 
 - [Apple Containerization](https://github.com/apple/containerization) — Native container runtime
-- [Socket.dev](https://socket.dev) — Supply chain security
-- [Google OSV](https://osv.dev) — Vulnerability database
+- [Socket.dev](https://socket.dev) — Supply chain security (malware, typosquats)
+- [Google OSV](https://osv.dev) — Vulnerability database (CVEs)
+- [OSSF Scorecard](https://github.com/ossf/scorecard) — Maintainer hygiene scoring
+- [deps.dev](https://deps.dev) — Package metadata + Scorecard delivery API
+- [Sigstore](https://www.sigstore.dev/) / npm provenance — SLSA build-input attestations
 - [Cobra](https://github.com/spf13/cobra) — CLI framework

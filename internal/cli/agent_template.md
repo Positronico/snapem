@@ -1,6 +1,6 @@
 # Using snapem
 
-snapem is a security-enhanced wrapper for Node.js package managers (npm, bun, pnpm) on macOS. It scans dependencies for supply-chain threats (Socket.dev malware, OSV CVEs) before installing and runs commands inside an isolated Apple container with the project at `/app`. When the `snapem` command is available on the user's PATH, prefer it over the underlying package manager for the tasks below.
+snapem is a security-enhanced wrapper for Node.js package managers (npm, bun, pnpm, yarn) on macOS. It runs five parallel pre-flight scanners against every dependency before any install / run / exec: Socket.dev (malware, typosquats), Google OSV (CVEs), OSSF Scorecard via deps.dev (maintainer hygiene), npm provenance attestations (SLSA build-input proof), and deps.dev metadata (deprecation, license posture). It then executes the package-manager command inside an isolated Apple container with the project at `/app`. When the `snapem` command is available on the user's PATH, prefer it over the underlying package manager for the tasks below.
 
 ## Command translations
 
@@ -20,7 +20,7 @@ The `--` separator is important: anything after `--` goes to the inner command, 
 
 ## What snapem does that the underlying tool doesn't
 
-1. **Pre-flight scan.** Reads `package.json` and the lockfile (`package-lock.json`, `bun.lock`, or `pnpm-lock.yaml`), queries Socket.dev (malware/typosquats) and Google OSV (CVEs), and refuses to install when a finding hits a block-severity policy. Default policy blocks malware and critical/high/medium CVEs.
+1. **Pre-flight scan.** Reads `package.json` and the lockfile (`package-lock.json`, `bun.lock`, `pnpm-lock.yaml`, or `yarn.lock`), runs five scanners in parallel, and refuses to install when a finding hits a block-severity policy. Default policy blocks malware and critical/high/medium CVEs; quality findings (low maintainer hygiene, deprecation, provenance anomalies) are advisory and surface alongside but don't gate the install. When a scanner fails (rate limit, outage), snapem prints "Some scanners failed to run" — the install isn't silently approved off the surviving scanners.
 2. **Container isolation.** Every install, run script, and `exec` runs inside `node:lts-slim` with the project bind-mounted at `/app`. The container has no access to `~/.ssh`, `~/.aws`, Keychain, or host environment variables unless the user explicitly forwarded them. The project IS writable from inside the container (npm/bun/pnpm need to write `node_modules` and the lockfile).
 
 ## When `snapem install` or `snapem scan` blocks

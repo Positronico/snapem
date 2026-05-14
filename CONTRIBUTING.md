@@ -16,8 +16,11 @@ internal/cli/           # cobra commands
 internal/config/        # viper-backed config
 internal/manifest/      # package.json + lockfile parsers
 internal/scanner/       # orchestrator + Scanner interface
-  scanner/osv/          # Google OSV client (CVE)
-  scanner/socket/       # Socket.dev client (malware)
+  scanner/osv/          # Google OSV client (CVEs)
+  scanner/socket/       # Socket.dev client (malware, typosquats)
+  scanner/scorecard/    # OSSF Scorecard via deps.dev (maintainer hygiene)
+  scanner/provenance/   # npm SLSA provenance attestations
+  scanner/metadata/     # deps.dev package metadata (deprecation, license)
 internal/container/     # Apple container CLI wrapper
 internal/pkgmanager/    # npm / bun / pnpm / yarn command-builders
 internal/types/         # shared scanner data types
@@ -48,7 +51,7 @@ Required:
 - Implement `Scanner.Name()`, `Scanner.Scan(ctx, packages) (*ScanResult, error)`.
 - Honor `context.Cancel`. The orchestrator races scanners and cancels stragglers.
 - Return all findings in a single `*ScanResult` — the orchestrator aggregates.
-- Dedupe `(name, version)` before sending, and chunk large batches if the upstream API has a per-request cap (OSV: 1000; Socket: 200 conservative).
+- Dedupe `(name, version)` before sending, and chunk large batches if the upstream API has a per-request cap (OSV: 1000 per `/v1/querybatch`; Socket: 200 conservative; deps.dev and the npm registry don't expose a batch endpoint so per-package calls are bounded by a worker pool — see `scorecard/client.go` for the pattern).
 - Mock with `httptest.Server` for tests. Never hit the live API in CI.
 
 Optional:

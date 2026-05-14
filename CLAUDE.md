@@ -8,7 +8,7 @@ This file is the operating manual for Claude when working on **snapem**. Read it
 
 snapem is a CLI that wraps `npm` / `bun` on macOS (Apple Silicon) and makes installing/running JavaScript packages safer by:
 
-1. **Pre-flight scanning** dependencies against Socket.dev (malware/typosquats) and Google OSV (CVEs) before they run.
+1. **Pre-flight scanning** dependencies against five sources before they run: Socket.dev (malware/typosquats), Google OSV (CVEs), OSSF Scorecard via deps.dev (maintainer hygiene), npm provenance attestations (SLSA build-input proof), and deps.dev metadata (deprecation, license).
 2. **Container isolation** of every install/run/exec inside Apple's native `container` runtime so malicious lifecycle scripts cannot read `~/.ssh`, the Keychain, env vars, etc.
 3. **Configurable policy** (block / warn / ignore) per threat type and severity.
 
@@ -50,8 +50,11 @@ internal/cli/           cobra commands (root, install, run, exec, scan, config, 
 internal/config/        viper-backed Config struct + accessors (policies, allowlist, etc.)
 internal/manifest/      package.json + package-lock.json parser; port auto-detection
 internal/scanner/       orchestrator + Scanner interface
-  scanner/osv/          Google OSV client (CVE)
-  scanner/socket/       Socket.dev client (malware)
+  scanner/osv/          Google OSV client (CVEs)
+  scanner/socket/       Socket.dev client (malware, typosquats)
+  scanner/scorecard/    OSSF Scorecard via deps.dev (maintainer hygiene)
+  scanner/provenance/   npm SLSA provenance attestations
+  scanner/metadata/     deps.dev package metadata (deprecation, license)
 internal/container/     Apple container CLI wrapper (Run, build args)
 internal/pkgmanager/    npm / bun command-builders
 internal/types/         shared scanner data types (Finding, Severity, etc.)
@@ -111,7 +114,7 @@ These currently have **zero** tests and have shipped bugs because of it. New cod
 | `internal/container/apple.go` | `buildArgs` for each opts shape (volume, port, env, network) — golden test |
 | `internal/manifest/parser.go` | `cleanVersion` for ranges (`>=1 <2`, `1.x`, `^4`), v1 lockfile fallback |
 
-For network-touching code, mock with `httptest.Server`. Never hit the real Socket / OSV API in CI.
+For network-touching code, mock with `httptest.Server`. Never hit any live upstream (Socket, OSV, deps.dev, npm registry) in CI.
 
 ### Manual smoke test (run when changing CLI behavior)
 

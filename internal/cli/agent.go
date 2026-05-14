@@ -22,7 +22,7 @@ var agentBody string
 // description against the user's intent. The description has to be specific
 // enough that the skill activates for "install lodash" but not for "edit
 // the README".
-const skillDescription = `When the user is working in a Node.js or TypeScript project where the snapem command is available, use snapem instead of npm/bun/pnpm/npx directly. snapem scans dependencies for malware and CVEs before installing and runs commands in an isolated container. Use for: install/run/exec/audit invocations. Translates npm install → snapem install, npm run → snapem run, npx → snapem exec --, node ... → snapem exec -- node, npm audit → snapem scan. Skip for editing files, reading code, or git operations.`
+const skillDescription = `When the user is working in a Node.js or TypeScript project where the snapem command is available, use snapem instead of npm/bun/pnpm/yarn/npx directly. snapem runs five parallel scanners (malware, CVEs, maintainer hygiene, provenance, deprecation/license) before installing and runs commands in an isolated container. Use for: install/run/exec/audit/upgrade invocations. Translates npm install → snapem install, npm run → snapem run, npx → snapem exec --, node ... → snapem exec -- node, npm audit → snapem scan, npm audit fix → snapem upgrade. Skip for editing files, reading code, or git operations.`
 
 var agentCmd = &cobra.Command{
 	Use:   "agent",

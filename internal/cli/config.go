@@ -235,25 +235,73 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 	display.Print("")
 	display.Print("Scanning:")
 	display.Print(fmt.Sprintf("  enabled: %v", viper.GetBool("scanning.enabled")))
-	display.Print(fmt.Sprintf("  socket.enabled: %v", viper.GetBool("scanning.socket.enabled")))
 
-	// Check for Socket token
-	token := os.Getenv("SOCKET_API_TOKEN")
-	if token != "" {
+	// Socket.dev
+	display.Print(fmt.Sprintf("  socket.enabled: %v", viper.GetBool("scanning.socket.enabled")))
+	if os.Getenv("SOCKET_API_TOKEN") != "" {
 		display.Print("  socket.api_token: (set via SOCKET_API_TOKEN)")
 	} else {
 		display.Print("  socket.api_token: (not set)")
 	}
+	display.Print(fmt.Sprintf("  socket.timeout: %s", viper.GetDuration("scanning.socket.timeout")))
 
+	// OSV
 	display.Print(fmt.Sprintf("  osv.enabled: %v", viper.GetBool("scanning.osv.enabled")))
+	display.Print(fmt.Sprintf("  osv.timeout: %s", viper.GetDuration("scanning.osv.timeout")))
+
+	// OSSF Scorecard
+	display.Print(fmt.Sprintf("  scorecard.enabled: %v", viper.GetBool("scanning.scorecard.enabled")))
+	display.Print(fmt.Sprintf("  scorecard.threshold: %v", viper.GetFloat64("scanning.scorecard.threshold")))
+
+	// npm provenance
+	display.Print(fmt.Sprintf("  provenance.enabled: %v", viper.GetBool("scanning.provenance.enabled")))
+	display.Print(fmt.Sprintf("  provenance.warn_missing: %v", viper.GetBool("scanning.provenance.warn_missing")))
+
+	// deps.dev metadata
+	display.Print(fmt.Sprintf("  metadata.enabled: %v", viper.GetBool("scanning.metadata.enabled")))
+	display.Print(fmt.Sprintf("  metadata.warn_unknown_license: %v", viper.GetBool("scanning.metadata.warn_unknown_license")))
+
+	// Cache
+	display.Print(fmt.Sprintf("  cache.enabled: %v", viper.GetBool("scanning.cache.enabled")))
+	display.Print(fmt.Sprintf("  cache.ttl: %s", viper.GetDuration("scanning.cache.ttl")))
+
+	// Policy
 	display.Print(fmt.Sprintf("  policy.malware: %s", viper.GetString("scanning.policy.malware")))
+	if cveMap := viper.GetStringMapString("scanning.policy.cve"); len(cveMap) > 0 {
+		for _, lvl := range []string{"critical", "high", "medium", "low"} {
+			if action := cveMap[lvl]; action != "" {
+				display.Print(fmt.Sprintf("  policy.cve.%s: %s", lvl, action))
+			}
+		}
+	}
+	if al := viper.GetStringSlice("scanning.policy.allowlist"); len(al) > 0 {
+		display.Print(fmt.Sprintf("  policy.allowlist: %d entries", len(al)))
+	}
+	if bl := viper.GetStringSlice("scanning.policy.blocklist"); len(bl) > 0 {
+		display.Print(fmt.Sprintf("  policy.blocklist: %d entries", len(bl)))
+	}
+	if pkgs := viper.GetStringMap("scanning.policy.packages"); len(pkgs) > 0 {
+		display.Print(fmt.Sprintf("  policy.packages: %d per-package override(s)", len(pkgs)))
+	}
 
 	display.Print("")
 	display.Print("Container:")
 	display.Print(fmt.Sprintf("  enabled: %v", viper.GetBool("container.enabled")))
 	display.Print(fmt.Sprintf("  network: %s", viper.GetString("container.network")))
+	display.Print(fmt.Sprintf("  mount_npmrc: %v", viper.GetBool("container.mount_npmrc")))
 	display.Print(fmt.Sprintf("  image.npm: %s", viper.GetString("container.image.npm")))
 	display.Print(fmt.Sprintf("  image.bun: %s", viper.GetString("container.image.bun")))
+	display.Print(fmt.Sprintf("  image.pnpm: %s", viper.GetString("container.image.pnpm")))
+	display.Print(fmt.Sprintf("  image.yarn: %s", viper.GetString("container.image.yarn")))
+	if env := viper.GetStringSlice("container.environment"); len(env) > 0 {
+		display.Print(fmt.Sprintf("  environment: %v", env))
+	}
+
+	display.Print("")
+	display.Print("UI:")
+	display.Print(fmt.Sprintf("  color: %v", viper.GetBool("ui.color")))
+	display.Print(fmt.Sprintf("  verbose: %v", viper.GetBool("ui.verbose")))
+	display.Print(fmt.Sprintf("  quiet: %v", viper.GetBool("ui.quiet")))
 
 	return nil
 }
