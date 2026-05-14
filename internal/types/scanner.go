@@ -65,6 +65,17 @@ type AggregatedResult struct {
 	HasCritical   bool          `json:"has_critical"`
 	HasHigh       bool          `json:"has_high"`
 	Duration      time.Duration `json:"duration"`
+
+	// ScannerErrors carries per-scanner failure messages from the
+	// current run. Populated when at least one scanner failed but at
+	// least one other succeeded — i.e. partial-success runs where the
+	// historic behavior was to silently drop the failures. Callers
+	// surface these to the user so a Socket rate-limit (or any
+	// upstream outage) doesn't pretend to have scanned coverage it
+	// didn't actually provide.
+	//
+	// Keyed by scanner name (matching ScanResult.Scanner).
+	ScannerErrors map[string]string `json:"scanner_errors,omitempty"`
 }
 
 // CountBySeverity returns the count of findings by severity

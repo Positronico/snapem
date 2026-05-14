@@ -23,10 +23,16 @@ var (
 var scanCmd = &cobra.Command{
 	Use:   "scan",
 	Short: "Run security scan on dependencies",
-	Long: `Scans all dependencies in package.json and package-lock.json for
-known vulnerabilities (CVEs) and malicious packages.
+	Long: `Scans every dependency in package.json (and any lockfile it can find)
+through five upstream sources in parallel: Socket.dev (malware /
+typosquats), Google OSV (CVEs), OSSF Scorecard via deps.dev (maintainer
+hygiene), npm provenance attestations (SLSA build-input proof), and
+deps.dev package metadata (deprecation, license).
 
-Uses Socket.dev for malware detection and Google OSV for CVE lookup.
+If one scanner fails (rate limit, outage, missing token) but others
+succeed, the failed scanner is reported under "Some scanners failed to
+run" so you know a signal is missing — silent partial-success would
+let an outage hide malware.
 
 Examples:
   snapem scan                       # Scan all dependencies (text output)
@@ -176,9 +182,10 @@ func emitMachineResult(format string, result *scanner.AggregatedResult) error {
 
 func outputJSONResult(result *scanner.AggregatedResult) error {
 	output := struct {
-		Packages int               `json:"packages_scanned"`
-		Findings []scanner.Finding `json:"findings"`
-		Summary  struct {
+		Packages      int               `json:"packages_scanned"`
+		Findings      []scanner.Finding `json:"findings"`
+		ScannerErrors map[string]string `json:"scanner_errors,omitempty"`
+		Summary       struct {
 			Total    int `json:"total"`
 			Critical int `json:"critical"`
 			High     int `json:"high"`
@@ -187,8 +194,9 @@ func outputJSONResult(result *scanner.AggregatedResult) error {
 			Malware  int `json:"malware"`
 		} `json:"summary"`
 	}{
-		Packages: result.TotalPackages,
-		Findings: result.AllFindings(),
+		Packages:      result.TotalPackages,
+		Findings:      result.AllFindings(),
+		ScannerErrors: result.ScannerErrors,
 	}
 
 	output.Summary.Total = result.TotalFindings
@@ -206,6 +214,11 @@ func outputJSONResult(result *scanner.AggregatedResult) error {
 func outputTextResult(cfg *config.Config, display *ui.UI, result *scanner.AggregatedResult) error {
 	display.Print("")
 	display.Print(fmt.Sprintf("Scanned %d packages in %s", result.TotalPackages, result.Duration.Round(1e6)))
+
+	// Surface per-scanner failures before declaring "all clean" — a
+	// run with no findings AND a missing Socket signal is materially
+	// different from a run with no findings AND all scanners green.
+	display.ScannerErrors(result.ScannerErrors)
 
 	if result.TotalFindings == 0 {
 		display.Success("No security issues found")

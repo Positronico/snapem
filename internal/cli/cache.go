@@ -14,10 +14,11 @@ import (
 var cacheCmd = &cobra.Command{
 	Use:   "cache",
 	Short: "Inspect or clear the scan result cache",
-	Long: `snapem caches scan results from Socket.dev and Google OSV under your
-user cache directory so repeat scans against unchanged dependencies don't
-re-hit the upstream APIs. Use these subcommands to see what's cached and
-to wipe it if you want a fresh fetch.`,
+	Long: `snapem caches every scanner's results (Socket.dev, Google OSV, OSSF
+Scorecard, npm provenance, deps.dev metadata) under your user cache
+directory so repeat scans against unchanged dependencies don't re-hit
+the upstream APIs. Use these subcommands to see what's cached and to
+wipe it if you want a fresh fetch.`,
 }
 
 var cacheInfoCmd = &cobra.Command{

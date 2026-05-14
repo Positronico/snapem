@@ -20,16 +20,21 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:   "snapem",
-	Short: "Secure npm/bun wrapper with pre-flight scanning and container isolation",
+	Short: "Secure npm/bun/pnpm/yarn wrapper with pre-flight scanning and container isolation",
 	Long: `snapem provides a Zero-Trust Development Environment for Node.js developers
-on macOS Silicon by scanning dependencies for malware and vulnerabilities
-before running them in isolated Apple containers.
+on macOS Silicon by scanning dependencies for supply-chain risk before
+running them in isolated Apple containers.
 
 Features:
-  - Pre-flight scanning using Socket.dev (malware) and OSV (CVEs)
+  - Five pre-flight scanners running in parallel:
+      Socket.dev          malware, typosquats
+      Google OSV          known CVEs
+      OSSF Scorecard      maintainer hygiene (via deps.dev)
+      npm provenance      SLSA-format build-input attestations
+      deps.dev metadata   deprecation, license posture
   - Container isolation via Apple's native Containerization framework
-  - Drop-in replacement for npm/bun commands
-  - Configurable security policies
+  - Drop-in replacement for npm, bun, pnpm, and yarn commands
+  - Configurable security policies, per-package overrides, allow/blocklists
 
 Examples:
   snapem install              # Scan and install dependencies
@@ -63,7 +68,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "enable verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "suppress non-error output")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "disable colored output")
-	rootCmd.PersistentFlags().StringVar(&pkgMgr, "package-manager", "", "force package manager (npm or bun)")
+	rootCmd.PersistentFlags().StringVar(&pkgMgr, "package-manager", "", "force package manager (npm, bun, pnpm, or yarn)")
 
 	// Bind flags to viper. NOTE: we deliberately do NOT bind --no-color to
 	// any viper key. The two semantics are different — `ui.color` is a

@@ -176,6 +176,7 @@ func computeUpgradePlan(ctx context.Context, cfg *config.Config, display *ui.UI,
 	if err != nil {
 		return nil, errors.ScannerError("security", err)
 	}
+	display.ScannerErrors(result.ScannerErrors)
 
 	return buildPlan(result.AllFindings(), directIndex), nil
 }

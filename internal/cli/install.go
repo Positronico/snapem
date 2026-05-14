@@ -192,6 +192,7 @@ func runSecurityScan(ctx context.Context, cfg *config.Config, display *ui.UI, pa
 }
 
 func evaluateScanResults(cfg *config.Config, display *ui.UI, result *scanner.AggregatedResult) error {
+	display.ScannerErrors(result.ScannerErrors)
 	if result.TotalFindings == 0 {
 		display.Success("No security issues found")
 		return nil

@@ -43,7 +43,9 @@ var doctorCmd = &cobra.Command{
   - container service running (apiserver up)
   - SOCKET_API_TOKEN configured (malware scanning needs it)
   - Cache directory writable
-  - OSV and Socket APIs reachable
+  - Reachability of every scanner upstream: api.osv.dev,
+    api.socket.dev, api.deps.dev (Scorecard + metadata), and
+    registry.npmjs.org (provenance)
 
 Exits non-zero if any check fails; warnings (e.g. missing SOCKET_API_TOKEN)
 do not cause a failing exit but are printed prominently. Run this first
@@ -72,6 +74,8 @@ func runDoctor(cmd *cobra.Command, args []string) error {
 		checkCacheDir,
 		checkOSVReachable,
 		checkSocketReachable,
+		checkDepsdevReachable,
+		checkNpmRegistryReachable,
 	}
 
 	display.Print("snapem doctor")
@@ -189,6 +193,21 @@ func checkOSVReachable(ctx context.Context, _ *config.Config) checkResult {
 
 func checkSocketReachable(ctx context.Context, _ *config.Config) checkResult {
 	return checkHTTPReachable(ctx, "Socket API", "https://api.socket.dev/")
+}
+
+// checkDepsdevReachable probes the upstream used by the Scorecard and
+// metadata scanners. They both hit the same host so one probe covers
+// two scanner dependencies.
+func checkDepsdevReachable(ctx context.Context, _ *config.Config) checkResult {
+	return checkHTTPReachable(ctx, "deps.dev API", "https://api.deps.dev/")
+}
+
+// checkNpmRegistryReachable probes the upstream used by the provenance
+// scanner. The npm registry is so widely depended-on that an outage is
+// usually obvious to the user already, but verifying here means a
+// brand-new install gets a clear signal about what's failing.
+func checkNpmRegistryReachable(ctx context.Context, _ *config.Config) checkResult {
+	return checkHTTPReachable(ctx, "npm registry", "https://registry.npmjs.org/")
 }
 
 // checkHTTPReachable is a soft probe: any HTTP response (even 404) means

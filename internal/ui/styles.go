@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"os"
+	"sort"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -78,6 +79,42 @@ func (u *UI) Error(msg string) {
 	} else {
 		os.Stderr.WriteString("[ERROR] " + msg + "\n")
 	}
+}
+
+// ScannerErrors renders a prominent block when one or more scanners
+// failed during the run. Each line names the scanner and its error
+// — the user needs to know their malware (or CVE, or hygiene) signal
+// didn't actually run, even if other scanners said everything looked
+// clean. Silent partial-success is the worst outcome.
+func (u *UI) ScannerErrors(errs map[string]string) {
+	if u.quiet || len(errs) == 0 {
+		return
+	}
+	names := make([]string, 0, len(errs))
+	for n := range errs {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+
+	u.Warning("Some scanners failed to run; coverage is incomplete:")
+	for _, n := range names {
+		msg := truncateError(errs[n], 140)
+		line := "  - " + n + ": " + msg
+		if u.useColor {
+			os.Stdout.WriteString(StyleWarning.Render(line) + "\n")
+		} else {
+			os.Stdout.WriteString(line + "\n")
+		}
+	}
+}
+
+// truncateError caps an error string at n bytes with an ellipsis so
+// long stack-trace-y network errors don't dominate the scan output.
+func truncateError(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n-1] + "…"
 }
 
 // Warning prints a warning message
