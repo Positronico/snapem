@@ -2,7 +2,7 @@
 
 All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
-## Unreleased
+## v0.11.0 — 2026-05-13
 
 ### Added
 - Package metadata scanner (`scanning.metadata`, enabled by default). Fetches deps.dev's per-version record and emits a **medium** finding when the maintainer marked the version deprecated (npm's `npm deprecate` mechanism) — with the human-readable reason in the description and a link to the package's npmjs page. Optional `warn_unknown_license` config (default `false`) emits a low advisory when the license is missing or `non-standard`; off by default because deps.dev returns `non-standard` for many real packages whose license string isn't a strict SPDX identifier (would be noisy).
