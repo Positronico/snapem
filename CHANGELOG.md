@@ -2,7 +2,7 @@
 
 All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
-## Unreleased
+## v0.9.0 — 2026-05-13
 
 ### Added
 - OSSF Scorecard scanner (`scanning.scorecard`, enabled by default). Surfaces maintainer-hygiene findings — recent activity, code review enforcement, signed releases, branch protection, dangerous workflows, etc. — that Socket and OSV can't see. Data via deps.dev's `/v3/projects` endpoint (free, no auth). Findings are advisory only (FindingTypeQuality) and never block installs by default. Configurable `threshold` (default 5.0 / 10); score < 2 emits high, < 4 medium, < threshold low. Packages without a github.com source link or without published Scorecard data are silently skipped.
