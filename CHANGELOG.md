@@ -2,6 +2,18 @@
 
 All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 
+## v0.12.0 — 2026-05-17
+
+### Added
+- **`gitdep` scanner** (`scanning.gitdep`, enabled by default). Fetches each package's per-version npm registry document and flags dependency specifiers in `dependencies` / `optionalDependencies` / `peerDependencies` that bypass the registry — `git+ssh://`, `git+https://`, `git://`, `github:`, `gitlab:`, `bitbucket:`, `gist:`, bare `owner/repo` shortcut, raw HTTP(S) tarball URLs, and `file:` paths. **Severity high; advisory** (`FindingTypeQuality`). A structural signal: those specifiers route the installer somewhere the rest of the scanner stack (OSV, Socket, Scorecard, provenance) cannot reason about, and the `prepare` lifecycle hook runs unconditionally on git-URL installs. Per-package allowlist is the escape hatch for the legitimate monorepo-internal-fork case.
+- **`tarball` scanner** (`scanning.tarball`, enabled by default). Streams each package's tarball and verifies its contents against the `files` whitelist declared in the package's own `package.json` (plus npm's always-included docs — `README*`/`LICENSE*`/`CHANGELOG*`/`HISTORY*`/`NOTICE*`/`package.json` — and declared entry points: `main`, `module`, `bin`, `types`, `typings`). **Severity medium; advisory.** Audit is skipped when `files` contains `**` recursion or `!`-negations (gitignore-style precedence rules `filepath.Match` can't faithfully evaluate; false positives would teach users to ignore the scanner). 25 MiB per-tarball read ceiling bounds memory against a hostile registry.
+
+### Changed
+- snapem now ships **seven** pre-flight scanners running in parallel: Socket.dev, Google OSV, OSSF Scorecard, npm provenance, deps.dev metadata, gitdep, and tarball. Root command long description, README scanner table, ASCII pipeline diagram, and `snapem config show` output updated accordingly.
+- **Provenance scanner posture revised.** Package header (`internal/scanner/provenance/client.go`) and README note now state that valid attestations are **not** a positive safety signal — a compromised CI pipeline produces cryptographically valid SLSA attestations for malicious tarballs because SLSA verifies process integrity, not source integrity. Subject-PURL mismatch and unreadable-bundle remain genuine anomalies and still emit findings. The scanner still earns its place against the naïve-token-theft attack class (attacker who can't run the legitimate workflow skips `--provenance`).
+- Orchestrator surfaces **partial scanner failures** distinctly. Previously a Socket rate-limit and an OSV outage looked identical at the CLI layer; `AggregatedResult.ScannerErrors` now carries per-scanner attribution so the user sees which signal is missing. Cross-module doc drift across the (now seven) scanner stack synced in a single audit pass.
+- CLAUDE.md gains two standing instructions: a release-flow shortcut (saying "publish" or bare "push" as a high-level verb triggers the entire branch→PR→merge→CHANGELOG→tag→Homebrew→verify→cleanup flow), and an unreleased-on-main drift reminder at session start / wrap-up cues.
+
 ## v0.11.0 — 2026-05-13
 
 ### Added
