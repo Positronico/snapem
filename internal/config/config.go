@@ -193,7 +193,7 @@ type PackagePolicyOverride struct {
 type ContainerConfig struct {
 	Enabled     bool              `mapstructure:"enabled"`
 	Image       map[string]string `mapstructure:"image"`       // "npm" -> "node:lts-slim"
-	Network     string            `mapstructure:"network"`     // "host", "none"
+	Network     string            `mapstructure:"network"`     // "host" | "bridge" | "none" — see internal/container/runtime.go NetworkMode for actual semantics (these names do NOT carry Docker semantics on Apple `container`)
 	Environment []string          `mapstructure:"environment"` // env vars to pass through
 
 	// MountNpmrc enables the read-only mount of the host's ~/.npmrc at

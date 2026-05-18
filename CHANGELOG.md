@@ -14,6 +14,10 @@ All notable changes to snapem. Versions follow [SemVer](https://semver.org).
 - Orchestrator surfaces **partial scanner failures** distinctly. Previously a Socket rate-limit and an OSV outage looked identical at the CLI layer; `AggregatedResult.ScannerErrors` now carries per-scanner attribution so the user sees which signal is missing. Cross-module doc drift across the (now seven) scanner stack synced in a single audit pass.
 - CLAUDE.md gains two standing instructions: a release-flow shortcut (saying "publish" or bare "push" as a high-level verb triggers the entire branch→PR→merge→CHANGELOG→tag→Homebrew→verify→cleanup flow), and an unreleased-on-main drift reminder at session start / wrap-up cues.
 
+### Documentation
+- Synced doc/reality drift across `CLAUDE.md` §1 + §3, `SECURITY.md`, `CONTRIBUTING.md`, and the container runtime constants (`internal/container/runtime.go`, `internal/cli/config.go` YAML template, `internal/config/config.go` field comment). The drift had two flavors: (a) scanner-count references that still said "five" after we shipped the seven-scanner stack, and (b) the `NetworkMode` constants (`NetworkHost`, `NetworkBridge`) carrying Docker semantics in their comments while the apple.go translator quietly falls them through to Apple `container`'s default named network — a misleading framing for a security-posture-relevant config value. `NetworkHost` does NOT give the container access to host loopback, Keychain, `~/.ssh`, AWS IMDS, etc.; the comments now say so explicitly. Behavior is unchanged; constant values are unchanged; existing `snapem.yaml` files keep working.
+- `SECURITY.md` provenance row promoted from "weak against forgery, strong against omission" to the more important "compromised-CI attestations are cryptographically valid for malicious tarballs" — the failure mode the structural scanners (gitdep, tarball) and Socket exist to backstop.
+
 ## v0.11.0 — 2026-05-13
 
 ### Added

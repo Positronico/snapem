@@ -21,6 +21,8 @@ internal/scanner/       # orchestrator + Scanner interface
   scanner/scorecard/    # OSSF Scorecard via deps.dev (maintainer hygiene)
   scanner/provenance/   # npm SLSA provenance attestations
   scanner/metadata/     # deps.dev package metadata (deprecation, license)
+  scanner/gitdep/       # out-of-registry dependency specifiers (git/URL/path)
+  scanner/tarball/      # tarball contents vs package.json `files` whitelist
 internal/container/     # Apple container CLI wrapper
 internal/pkgmanager/    # npm / bun / pnpm / yarn command-builders
 internal/types/         # shared scanner data types
