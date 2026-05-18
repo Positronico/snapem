@@ -88,8 +88,10 @@ For **any** non-trivial change:
 3. **Build.** `make build` must succeed. `go vet ./...` must be clean. `make test` (with `-race`) must pass.
 4. **Manual verification when behavior is user-facing.** See section 6.
 5. **Commit.** Conventional-style subject (`fix:`, `feat:`, `refactor:`, `test:`, `docs:`, `chore:`). Never include "Generated with Claude" or "Co-Authored-By: Claude" footers — see the user's global instructions.
-6. **Push when the user asks, or when the change has been approved.** Don't push unprompted unless the user has said "you can push as you go."
-7. **Release on user request only.** Tagging triggers a public release. Confirm version bump and changelog with the user first. Then follow WORKFLOW.md.
+6. **Push when the user asks, or when the change has been approved.** Don't push unprompted unless the user has said "you can push as you go." Low-level scopes still mean what they say: "push the branch", "push to origin", "open a PR" stop at PR open.
+7. **"publish" and bare "push" mean the full release flow.** When the user says either word as a high-level verb meaning "ship this work" (i.e., not narrowed to a branch / PR / commit), execute the whole shebang in order: (a) commit + push branch + open PR + merge to main (if not already there); (b) decide the SemVer bump from the diff against the last tag — `feat:` → minor, `fix:`/`refactor:`/`docs:`/`chore:` → patch, breaking → major; (c) update `CHANGELOG.md` with a new `## vX.Y.Z — <today>` section summarizing what changed (Added / Changed / Fixed / Removed subsections as relevant), commit as `Freeze CHANGELOG for vX.Y.Z release`, push; (d) tag `vX.Y.Z` and push the tag — this triggers `.github/workflows/release.yml` and goreleaser; (e) wait for the release workflow to finish, confirm the GitHub Release was created with the darwin/{arm64,amd64} tarballs; (f) run `./scripts/update-formula.sh vX.Y.Z` to push the new formula to `Positronico/homebrew-tap`; (g) `brew update && brew upgrade snapem && snapem version` to confirm; (h) clean up merged branches per §7.5. Surface the chosen version bump and the CHANGELOG diff to the user before pushing the tag — that's the one moment in the flow where a quick eyeball can prevent a wrong-shaped release. Do NOT batch multiple "publish" requests; one release per invocation.
+
+8. **Surface unreleased-on-main drift.** Once per session — at session start and again whenever the user appears to be wrapping up a task ("done", "thanks", "what next", topic switch, end-of-turn summary) — check whether `origin/main` is ahead of the latest tag. Recipe: `git fetch --quiet origin --tags && git describe --tags --abbrev=0` to get the last tag, then `git log --oneline <tag>..origin/main`. If the result is non-empty, surface ONE line in the user-facing reply: `main is N commit(s) ahead of <tag>: <one-line summary>. Not released yet — say "publish" to cut vX.Y.Z.` (X.Y.Z = the SemVer bump implied by the diff per §5.7). Suppress the reminder after the user has acknowledged it in this session (they say "not now", "later", "no release yet", or anything else that signals deferral) — but resume reminding in the next session if drift still exists. Skip the check entirely when the working tree is clean AND `git describe --tags` matches HEAD exactly (no drift to flag).
 
 ## 6. Testing
 
@@ -158,7 +160,7 @@ make install         # installs to GOPATH/bin
 
 ### Cutting a release
 
-Only when the user asks. Process is in [WORKFLOW.md](WORKFLOW.md). Summary:
+Triggered by the user saying "publish" or "push" (as a high-level verb — see §5.7), or any explicit "cut a release" / "release vX.Y.Z" request. Process is in [WORKFLOW.md](WORKFLOW.md). Summary:
 
 1. `git tag vX.Y.Z && git push origin vX.Y.Z`
 2. Wait for `.github/workflows/release.yml` (it runs goreleaser, builds darwin/{arm64,amd64} tarballs, publishes a GitHub release).
