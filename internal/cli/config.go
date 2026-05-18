@@ -184,7 +184,20 @@ container:
     pnpm: node:lts-slim       # pnpm uses corepack inside the node image
     yarn: node:lts-slim       # yarn also uses corepack
 
-  # Network mode: host, none
+  # Network mode. Accepted values: host, bridge, none.
+  #
+  # Note: these names predate the port to Apple's container runtime
+  # and DO NOT carry Docker semantics. As of container v0.9.0:
+  #   "host"   → emits no --network flag; the container attaches to
+  #              the auto-created "default" named network
+  #              (192.168.64.0/24). This is NOT host networking;
+  #              the container cannot reach host loopback / Keychain
+  #              / ~/.ssh / ~/.aws / IMDS at 169.254.169.254.
+  #   "bridge" → currently equivalent to "host". Reserved for future
+  #              per-project named-network support.
+  #   "none"   → emits --network none. Outbound DNS / TCP fully
+  #              disabled. Use for snapem exec when you want a script
+  #              that cannot phone home.
   network: host
 
   # Environment variables to pass into the container. Snapem does NOT

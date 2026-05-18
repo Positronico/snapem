@@ -8,7 +8,7 @@ This file is the operating manual for Claude when working on **snapem**. Read it
 
 snapem is a CLI that wraps `npm` / `bun` on macOS (Apple Silicon) and makes installing/running JavaScript packages safer by:
 
-1. **Pre-flight scanning** dependencies against five sources before they run: Socket.dev (malware/typosquats), Google OSV (CVEs), OSSF Scorecard via deps.dev (maintainer hygiene), npm provenance attestations (SLSA build-input proof), and deps.dev metadata (deprecation, license).
+1. **Pre-flight scanning** dependencies against seven sources before they run: Socket.dev (malware/typosquats), Google OSV (CVEs), OSSF Scorecard via deps.dev (maintainer hygiene), npm provenance attestations (SLSA build-input proof — note that valid attestations are NOT a positive safety signal; see §8 and the provenance scanner header), deps.dev metadata (deprecation, license), gitdep (out-of-registry dependency specifiers), and tarball (tarball contents vs the package's own `files` whitelist).
 2. **Container isolation** of every install/run/exec inside Apple's native `container` runtime so malicious lifecycle scripts cannot read `~/.ssh`, the Keychain, env vars, etc.
 3. **Configurable policy** (block / warn / ignore) per threat type and severity.
 
@@ -55,6 +55,8 @@ internal/scanner/       orchestrator + Scanner interface
   scanner/scorecard/    OSSF Scorecard via deps.dev (maintainer hygiene)
   scanner/provenance/   npm SLSA provenance attestations
   scanner/metadata/     deps.dev package metadata (deprecation, license)
+  scanner/gitdep/       out-of-registry dependency specifiers (git/URL/path)
+  scanner/tarball/      tarball contents vs package.json `files` whitelist
 internal/container/     Apple container CLI wrapper (Run, build args)
 internal/pkgmanager/    npm / bun command-builders
 internal/types/         shared scanner data types (Finding, Severity, etc.)
