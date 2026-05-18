@@ -94,6 +94,29 @@ scanning:
     # isn't a strict SPDX identifier — noisy.
     warn_unknown_license: false
 
+  # Git/URL/path dependency check. Flags published packages whose
+  # dependency specifiers point outside the configured npm registry
+  # (git URLs, raw tarball URLs, local file paths, GitHub shortcuts).
+  # A structural signal: those refs bypass every other scanner and
+  # trigger a "prepare" lifecycle hook on install. Severity high but
+  # advisory (FindingTypeQuality); add to allowlist to silence per
+  # package.
+  gitdep:
+    enabled: true
+    timeout: 30s
+
+  # Tarball-vs-files audit. Downloads each package's tarball and
+  # verifies its contents match the "files" whitelist declared in the
+  # package's own package.json (plus always-included docs and declared
+  # entry points). A mismatch means the publishing pipeline produced
+  # bytes the manifest doesn't admit to — the shape of a tampered or
+  # surprise-content publish. Severity medium; advisory. Disable if
+  # bandwidth in CI is constrained — one tarball download per cache
+  # miss.
+  tarball:
+    enabled: true
+    timeout: 30s
+
   # OSSF Scorecard (via deps.dev) — measures maintainer hygiene
   # rather than malware or CVEs. Emits an advisory finding when a
   # package's repo scores below threshold. Findings are FindingTypeQuality
@@ -260,6 +283,12 @@ func runConfigShow(cmd *cobra.Command, args []string) error {
 	// deps.dev metadata
 	display.Print(fmt.Sprintf("  metadata.enabled: %v", viper.GetBool("scanning.metadata.enabled")))
 	display.Print(fmt.Sprintf("  metadata.warn_unknown_license: %v", viper.GetBool("scanning.metadata.warn_unknown_license")))
+
+	// gitdep
+	display.Print(fmt.Sprintf("  gitdep.enabled: %v", viper.GetBool("scanning.gitdep.enabled")))
+
+	// tarball audit
+	display.Print(fmt.Sprintf("  tarball.enabled: %v", viper.GetBool("scanning.tarball.enabled")))
 
 	// Cache
 	display.Print(fmt.Sprintf("  cache.enabled: %v", viper.GetBool("scanning.cache.enabled")))
