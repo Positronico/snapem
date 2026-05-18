@@ -26,12 +26,14 @@ on macOS Silicon by scanning dependencies for supply-chain risk before
 running them in isolated Apple containers.
 
 Features:
-  - Five pre-flight scanners running in parallel:
+  - Seven pre-flight scanners running in parallel:
       Socket.dev          malware, typosquats
       Google OSV          known CVEs
       OSSF Scorecard      maintainer hygiene (via deps.dev)
       npm provenance      SLSA-format build-input attestations
       deps.dev metadata   deprecation, license posture
+      gitdep              git/URL/path dependency specifiers
+      tarball             tarball vs package.json files audit
   - Container isolation via Apple's native Containerization framework
   - Drop-in replacement for npm, bun, pnpm, and yarn commands
   - Configurable security policies, per-package overrides, allow/blocklists

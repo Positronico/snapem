@@ -10,11 +10,13 @@ import (
 	"github.com/positronico/snapem/internal/config"
 	"github.com/positronico/snapem/internal/manifest"
 	"github.com/positronico/snapem/internal/scanner/cache"
+	"github.com/positronico/snapem/internal/scanner/gitdep"
 	"github.com/positronico/snapem/internal/scanner/metadata"
 	"github.com/positronico/snapem/internal/scanner/osv"
 	"github.com/positronico/snapem/internal/scanner/provenance"
 	"github.com/positronico/snapem/internal/scanner/scorecard"
 	"github.com/positronico/snapem/internal/scanner/socket"
+	"github.com/positronico/snapem/internal/scanner/tarball"
 )
 
 // ProgressFunc is called when an individual scanner starts (done=false) and
@@ -60,6 +62,12 @@ func NewOrchestrator(cfg *config.Config) *Orchestrator {
 	}
 	if cfg.Scanning.Metadata.Enabled {
 		o.scanners = append(o.scanners, wrapCache(metadata.NewClient(cfg.Scanning.Metadata), store, ttl))
+	}
+	if cfg.Scanning.GitDep.Enabled {
+		o.scanners = append(o.scanners, wrapCache(gitdep.NewClient(cfg.Scanning.GitDep), store, ttl))
+	}
+	if cfg.Scanning.Tarball.Enabled {
+		o.scanners = append(o.scanners, wrapCache(tarball.NewClient(cfg.Scanning.Tarball), store, ttl))
 	}
 
 	return o

@@ -40,6 +40,14 @@ func Defaults() *Config {
 				Timeout:            30 * time.Second,
 				WarnUnknownLicense: false,
 			},
+			GitDep: GitDepConfig{
+				Enabled: true,
+				Timeout: 30 * time.Second,
+			},
+			Tarball: TarballConfig{
+				Enabled: true,
+				Timeout: 30 * time.Second,
+			},
 			Cache: CacheConfig{
 				Enabled: true,
 				TTL:     24 * time.Hour,
@@ -105,6 +113,10 @@ func RegisterDefaults(v *viper.Viper) {
 	v.SetDefault("scanning.metadata.enabled", d.Scanning.Metadata.Enabled)
 	v.SetDefault("scanning.metadata.timeout", d.Scanning.Metadata.Timeout)
 	v.SetDefault("scanning.metadata.warn_unknown_license", d.Scanning.Metadata.WarnUnknownLicense)
+	v.SetDefault("scanning.gitdep.enabled", d.Scanning.GitDep.Enabled)
+	v.SetDefault("scanning.gitdep.timeout", d.Scanning.GitDep.Timeout)
+	v.SetDefault("scanning.tarball.enabled", d.Scanning.Tarball.Enabled)
+	v.SetDefault("scanning.tarball.timeout", d.Scanning.Tarball.Timeout)
 	v.SetDefault("scanning.cache.enabled", d.Scanning.Cache.Enabled)
 	v.SetDefault("scanning.cache.ttl", d.Scanning.Cache.TTL)
 	v.SetDefault("scanning.policy.malware", d.Scanning.Policy.Malware)

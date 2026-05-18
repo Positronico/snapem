@@ -25,10 +25,30 @@
 //
 // Cryptographic verification of the Sigstore bundle (Fulcio cert
 // chain, rekor inclusion proof, signature over the DSSE envelope) is
-// a planned follow-up. Real attackers today *omit* provenance rather
-// than forge it; the metadata layer catches the omission case. The
-// crypto layer hardens us against MITM and registry compromise — a
-// real but currently theoretical threat.
+// a planned follow-up.
+//
+// Posture: valid provenance is NOT a positive safety signal
+//
+// Provenance attestations were once the strongest pre-disclosure
+// signal in this stack. They no longer are. A compromised CI pipeline
+// produces *valid* attestations — the signing identity is the real
+// builder, the subject PURL is the real package, the Sigstore bundle
+// verifies cryptographically — because the builder is doing exactly
+// what the predicate claims, just with poisoned inputs the predicate
+// can't see. SLSA verifies process integrity, not source integrity.
+//
+// Consequence for this scanner: a healthy provenance result means
+// "nothing here is wrong" and nothing more. Do NOT treat it as
+// evidence the package is safe. Treat it as evidence the package is
+// not exhibiting the *naïve token-theft* failure mode (an attacker
+// who skipped --provenance because they didn't have a way to run the
+// real workflow). For richer signals, defer to behavioral scanners
+// (Socket) and the structural scanners in the gitdep and tarball
+// packages — those don't rely on the publishing pipeline being
+// trustworthy.
+//
+// Subject-PURL mismatch and "attestation present but unreadable"
+// remain genuine anomalies and are still emitted as findings.
 package provenance
 
 import (
@@ -304,8 +324,12 @@ func (c *Client) scanOne(ctx context.Context, pkg manifest.Package) (types.Findi
 		}, true
 	}
 
-	// Healthy provenance — no finding emitted. The verbose output
-	// path can surface positive signal separately.
+	// Healthy provenance — no finding emitted. Note this is the
+	// absence of an *attestation* anomaly only; it does not certify
+	// the package is benign. A compromised CI pipeline produces
+	// cryptographically valid attestations for malicious tarballs
+	// because SLSA verifies process integrity, not source integrity.
+	// See the package header comment.
 	return types.Finding{}, false
 }
 

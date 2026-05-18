@@ -29,6 +29,8 @@ type ScanningConfig struct {
 	Scorecard  ScorecardConfig  `mapstructure:"scorecard"`
 	Provenance ProvenanceConfig `mapstructure:"provenance"`
 	Metadata   MetadataConfig   `mapstructure:"metadata"`
+	GitDep     GitDepConfig     `mapstructure:"gitdep"`
+	Tarball    TarballConfig    `mapstructure:"tarball"`
 	Cache      CacheConfig      `mapstructure:"cache"`
 	Policy     PolicyConfig     `mapstructure:"policy"`
 }
@@ -95,6 +97,41 @@ type ProvenanceConfig struct {
 	// of dependencies. Useful for projects that want to enforce a
 	// "provenance-only" policy on their direct dependencies.
 	WarnMissing bool `mapstructure:"warn_missing"`
+}
+
+// GitDepConfig holds settings for the gitdep scanner. The scanner
+// fetches the npm registry's per-version document for each package
+// and flags dependency specifiers that bypass the registry — git
+// URLs, raw tarball URLs, file paths, or GitHub-shortcut refs.
+//
+// The signal is structural, not version-specific: a published package
+// that pulls dependencies from outside the registry can't be reasoned
+// about by Socket/OSV/Scorecard, and a git URL triggers the `prepare`
+// lifecycle hook at install time. Severity is high but never blocks
+// installs by itself (FindingTypeQuality is advisory under default
+// policy); the per-package allowlist is the escape hatch for the rare
+// legitimate use of this pattern.
+type GitDepConfig struct {
+	Enabled bool          `mapstructure:"enabled"`
+	Timeout time.Duration `mapstructure:"timeout"`
+}
+
+// TarballConfig holds settings for the tarball-audit scanner. The
+// scanner downloads each package's tarball and verifies that every
+// entry inside it is covered by the `files` whitelist declared in the
+// package's own package.json (plus the always-included docs and
+// declared entry points).
+//
+// The signal is a self-consistency check: the published bytes either
+// match the published claim, or they don't. When they don't, the
+// publishing pipeline is doing something the manifest doesn't admit
+// to — a soft red flag worth surfacing. Severity medium; advisory.
+//
+// Cost: one tarball download per (name, version) cache miss. Disable
+// in tight CI loops if bandwidth matters.
+type TarballConfig struct {
+	Enabled bool          `mapstructure:"enabled"`
+	Timeout time.Duration `mapstructure:"timeout"`
 }
 
 // ScorecardConfig holds OSSF Scorecard settings. Data is fetched from

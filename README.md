@@ -93,22 +93,25 @@ That's it! snapem scans your packages, then runs everything safely in a containe
 
 ## Setting Up Security Scanning
 
-snapem uses five security data sources:
+snapem uses seven security data sources:
 
 | Service | What it detects | API Key Required? |
 |---------|----------------|-------------------|
 | [Socket.dev](https://socket.dev) | Malware, suspicious code, typosquatting | Yes (free tier available) |
 | [Google OSV](https://osv.dev) | Known vulnerabilities (CVEs) | No |
 | [OSSF Scorecard](https://github.com/ossf/scorecard) via [deps.dev](https://deps.dev) | Maintainer hygiene (recent activity, code review, signed releases, dangerous workflows, etc.) | No |
-| npm provenance attestations | SLSA-format proof of "this tarball was built from `<repo>@<ref>` by `<builder>`" — detects attestation-confusion attacks and (optionally) flags packages with no provenance | No |
+| npm provenance attestations | SLSA-format proof of "this tarball was built from `<repo>@<ref>` by `<builder>`" — detects attestation-confusion attacks and (optionally) flags packages with no provenance. **Note**: valid provenance is *not* a positive safety signal; a compromised CI pipeline produces valid attestations for malicious tarballs. SLSA verifies process integrity, not source integrity. | No |
 | Package metadata via [deps.dev](https://deps.dev) | Maintainer-marked deprecation (npm `npm deprecate`); optionally license posture | No |
+| gitdep | Published packages whose `dependencies` / `optionalDependencies` / `peerDependencies` reference git URLs, raw tarballs, file paths, or GitHub-shortcut refs. Those bypass every other scanner and trigger a `prepare` lifecycle hook at install time. | No |
+| tarball audit | Each package's tarball is downloaded and its contents are checked against the `files` whitelist declared in the package's own package.json (plus always-included docs and declared entry points). A mismatch is the shape of a tampered or surprise-content publish. | No |
 
-Each scanner adds an independent angle. A bad-news package commonly trips multiple scanners — e.g. `request@2.88.2` shows up as deprecated, low maintainer hygiene, AND a known SSRF CVE in a single scan pass. Findings from quality scanners (Scorecard, metadata, provenance) are advisory by default; the malware/CVE scanners block per the configured policy.
+Each scanner adds an independent angle. A bad-news package commonly trips multiple scanners — e.g. `request@2.88.2` shows up as deprecated, low maintainer hygiene, AND a known SSRF CVE in a single scan pass. Findings from quality scanners (Scorecard, metadata, provenance, gitdep, tarball) are advisory by default; the malware/CVE scanners block per the configured policy.
 
 Tunables:
 - `scanning.scorecard.threshold` (default `5.0`) — Scorecard score below which a finding fires
 - `scanning.provenance.warn_missing` (default `false`) — also flag packages without any provenance
 - `scanning.metadata.warn_unknown_license` (default `false`) — emit a low advisory for unknown / non-standard licenses
+- `scanning.tarball.enabled` (default `true`) — disable in bandwidth-constrained CI to skip the per-package tarball download
 
 ### Getting a Socket.dev API Key (Recommended)
 
@@ -588,12 +591,14 @@ snapem run dev -p 3000
 ┌──────────────────────────────────────────────────────────────┐
 │  1. Read package.json and lockfile (workspace-aware)         │
 │  2. Extract all package names and versions; dedupe           │
-│  3. Query five security sources in parallel:                 │
+│  3. Query seven security sources in parallel:                │
 │     ├── Socket.dev    → malware, typosquats, suspicious      │
 │     ├── Google OSV    → known CVEs                           │
 │     ├── OSSF Scorecard→ maintainer hygiene (via deps.dev)    │
 │     ├── npm provenance→ SLSA build-input attestations        │
-│     └── deps.dev meta → deprecation, license posture         │
+│     ├── deps.dev meta → deprecation, license posture         │
+│     ├── gitdep        → git/URL/path dependency specifiers   │
+│     └── tarball       → tarball vs `files` field audit       │
 │  4. Apply your security policy (global + per-package)        │
 │  5. Block or warn based on findings; surface scanner failures│
 └──────────────────────────────────────────────────────────────┘
@@ -629,6 +634,8 @@ This means:
 | Abandoned / unmaintained dependencies | ✅ OSSF Scorecard via deps.dev |
 | Attestation-confusion (`pkg:X` provenance shipped under `pkg:Y`) | ✅ npm provenance subject-PURL check |
 | Maintainer-declared deprecation | ✅ deps.dev metadata (`isDeprecated` flag) |
+| Dependency that bypasses the registry (git URL, raw tarball, file path) | ✅ gitdep scanner |
+| Tarball ships files outside the package's own `files` whitelist | ✅ tarball-audit scanner |
 | Data exfiltration | ✅ Optional network isolation (`--no-network`) |
 | Host credential theft (SSH, AWS, Keychain) | ✅ Not mounted into the container |
 
